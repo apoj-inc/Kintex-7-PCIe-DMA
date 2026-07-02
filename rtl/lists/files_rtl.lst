@@ -1,0 +1,3 @@
+rtl/src/dma/pcie_axi_bridge/kdma_pcie_destraddle.sv
+rtl/src/primitives/stream_arbiter.sv
+rtl/src/primitives/stream_fifo.sv
