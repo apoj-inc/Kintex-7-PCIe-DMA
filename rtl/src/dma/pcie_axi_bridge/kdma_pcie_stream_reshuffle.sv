@@ -43,7 +43,7 @@ module kdma_pcie_stream_reshuffle (
 
     stream_fifo #(
         .DATA_WIDTH (128 + 8 + 5),
-        .FIFO_DEPTH (1 )
+        .FIFO_DEPTH (2 )
     ) skid (
         .ACLK    (clk  ),
         .ARESETn (rst_n),
