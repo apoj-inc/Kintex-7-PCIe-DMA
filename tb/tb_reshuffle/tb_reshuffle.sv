@@ -1,25 +1,26 @@
-module tb_destraddle;
+module tb_reshuffle;
 
 logic [7:0] pcie_queue [$];
-logic [7:0] pcie_destr_queue [$];
+logic [7:0] pcie_detach_queue [$];
 logic [7:0] pcie_queue_checked [$];
-logic [7:0] pcie_destr_queue_checked [$];
+logic [7:0] pcie_detach_queue_checked [$];
 int byte_index;
 logic [7:0] expected, received;
 
-logic         clk                 ;
-logic         rst_n               ;
-logic         pcie_valid_i        ;
-logic         pcie_ready_o        ;
-logic [127:0] pcie_data_i         ;
-logic [4:0]   pcie_sof_i          ;
-logic [4:0]   pcie_eof_i          ;
-logic [7:0]   pcie_bar_hit_i      ;
-logic         pcie_destr_valid_o  ;
-logic         pcie_destr_ready_i  ;
-logic [127:0] pcie_destr_data_o   ;
-logic [7:0]   pcie_destr_bar_hit_o;
-logic [4:0]   pcie_destr_eof_o    ;
+logic         clk                  ;
+logic         rst_n                ;
+logic         pcie_valid_i         ;
+logic         pcie_ready_o         ;
+logic [127:0] pcie_data_i          ;
+logic [4:0]   pcie_sof_i           ;
+logic [4:0]   pcie_eof_i           ;
+logic [7:0]   pcie_bar_hit_i       ;
+logic         pcie_detach_valid_o  ;
+logic         pcie_detach_ready_i  ;
+logic [127:0] pcie_detach_data_o   ;
+logic         pcie_detach_header_o ;
+logic [7:0]   pcie_detach_bar_hit_o;
+logic [4:0]   pcie_detach_eof_o    ;
 
 logic pcie_valid_gate, pcie_valid_val;
 
@@ -64,15 +65,29 @@ always @(posedge clk) begin
 end
 
 always @(posedge clk) begin
-    if (pcie_destr_valid_o && pcie_destr_ready_i) begin
-        if (!pcie_destr_eof_o[4]) begin
-            for (int i = 0; i < 16; i++) begin
-                pcie_destr_queue.push_back(pcie_destr_data_o[i*8 +: 8]);
+    if (pcie_detach_valid_o && pcie_detach_ready_i) begin
+        if (!pcie_detach_eof_o[4]) begin
+            if (!pcie_detach_header_o) begin
+                for (int i = 0; i < 16; i++) begin
+                    pcie_detach_queue.push_back(pcie_detach_data_o[i*8 +: 8]);
+                end
+            end
+            else begin
+                if (pcie_detach_data_o[29] == '0) begin
+                    for (int i = 0; i < 12; i++) begin
+                        pcie_detach_queue.push_back(pcie_detach_data_o[i*8 +: 8]);
+                    end
+                end
+                else begin
+                    for (int i = 0; i < 16; i++) begin
+                        pcie_detach_queue.push_back(pcie_detach_data_o[i*8 +: 8]);
+                    end
+                end
             end
         end
         else begin
-            for (int i = 0; i <= pcie_destr_eof_o[3:0]; i++) begin
-                pcie_destr_queue.push_back(pcie_destr_data_o[i*8 +: 8]);
+            for (int i = 0; i <= pcie_detach_eof_o[3:0]; i++) begin
+                pcie_detach_queue.push_back(pcie_detach_data_o[i*8 +: 8]);
             end
         end
     end
@@ -82,10 +97,10 @@ always #4 clk = ~clk;
 
 always_ff @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
-        pcie_destr_ready_i <= '0;
+        pcie_detach_ready_i <= '0;
     end
     else begin
-        pcie_destr_ready_i <= $urandom();
+        pcie_detach_ready_i <= $urandom();
     end
 end
 
@@ -128,22 +143,23 @@ always_ff @(posedge clk or negedge rst_n) begin
     end
 end
 
-kdma_pcie_destraddle dut (
-    .clk                  (clk                 ),
-    .rst_n                (rst_n               ),
+kdma_pcie_stream_reshuffle dut (
+    .clk                   (clk                  ),
+    .rst_n                 (rst_n                ),
 
-    .pcie_valid_i         (pcie_valid_i        ),
-    .pcie_ready_o         (pcie_ready_o        ),
-    .pcie_data_i          (pcie_data_i         ),
-    .pcie_sof_i           (pcie_sof_i          ),
-    .pcie_eof_i           (pcie_eof_i          ),
-    .pcie_bar_hit_i       (pcie_bar_hit_i      ),
+    .pcie_valid_i          (pcie_valid_i         ),
+    .pcie_ready_o          (pcie_ready_o         ),
+    .pcie_data_i           (pcie_data_i          ),
+    .pcie_sof_i            (pcie_sof_i           ),
+    .pcie_eof_i            (pcie_eof_i           ),
+    .pcie_bar_hit_i        (pcie_bar_hit_i       ),
 
-    .pcie_destr_valid_o   (pcie_destr_valid_o  ),
-    .pcie_destr_ready_i   (pcie_destr_ready_i  ),
-    .pcie_destr_data_o    (pcie_destr_data_o   ),
-    .pcie_destr_bar_hit_o (pcie_destr_bar_hit_o),
-    .pcie_destr_eof_o     (pcie_destr_eof_o    )
+    .pcie_detach_valid_o   (pcie_detach_valid_o  ),
+    .pcie_detach_ready_i   (pcie_detach_ready_i  ),
+    .pcie_detach_data_o    (pcie_detach_data_o   ),
+    .pcie_detach_header_o  (pcie_detach_header_o ),
+    .pcie_detach_bar_hit_o (pcie_detach_bar_hit_o),
+    .pcie_detach_eof_o     (pcie_detach_eof_o    )
 );
 
 initial begin
@@ -289,15 +305,16 @@ initial begin
 
         pcie_valid_val = '0;
 
-        #10;
+        repeat (10) @(posedge clk);
+        
     end
 
-    assert (pcie_queue.size() == pcie_destr_queue.size()) 
+    assert (pcie_queue.size() == pcie_detach_queue.size()) 
     else   begin
-        $error("Data count mismatch: %d bytes incoming, %d bytes outgoing", pcie_queue.size(), pcie_destr_queue.size());
+        $error("Data count mismatch: %d bytes incoming, %d bytes outgoing", pcie_queue.size(), pcie_detach_queue.size());
         $display("Incoming, Outgoing:");
-        while (pcie_queue.size() && pcie_destr_queue.size()) begin
-            $display("%h, %h", pcie_queue.pop_front(), pcie_destr_queue.pop_front());
+        while (pcie_queue.size() && pcie_detach_queue.size()) begin
+            $display("%h, %h", pcie_queue.pop_front(), pcie_detach_queue.pop_front());
         end
         $finish();
     end
@@ -305,24 +322,24 @@ initial begin
 
     while (pcie_queue.size()) begin
         expected = pcie_queue.pop_front();
-        received = pcie_destr_queue.pop_front();
+        received = pcie_detach_queue.pop_front();
 
         assert (expected == received)
         else   begin
             $error("Data mismatch: byte %d, expected %h, received %h", byte_index, expected, received);
             
             $display("Incoming, Outgoing:");
-            while (pcie_queue_checked.size() && pcie_destr_queue_checked.size()) begin
-                $display("%h, %h", pcie_queue_checked.pop_front(), pcie_destr_queue_checked.pop_front());
+            while (pcie_queue_checked.size() && pcie_detach_queue_checked.size()) begin
+                $display("%h, %h", pcie_queue_checked.pop_front(), pcie_detach_queue_checked.pop_front());
             end
             $display("Error: %h, %h", expected, received);
-            while (pcie_queue.size() && pcie_destr_queue.size()) begin
-                $display("%h, %h", pcie_queue.pop_front(), pcie_destr_queue.pop_front());
+            while (pcie_queue.size() && pcie_detach_queue.size()) begin
+                $display("%h, %h", pcie_queue.pop_front(), pcie_detach_queue.pop_front());
             end
             $finish();
         end
         pcie_queue_checked.push_back(expected);
-        pcie_destr_queue_checked.push_back(received);
+        pcie_detach_queue_checked.push_back(received);
 
         byte_index++;
     end

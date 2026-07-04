@@ -12,23 +12,22 @@ module kdma_pcie_destraddle (
     output logic         pcie_destr_valid_o  ,
     input  logic         pcie_destr_ready_i  ,
     output logic [127:0] pcie_destr_data_o   ,
-    output logic         pcie_destr_last_o   ,
     output logic [7:0]   pcie_destr_bar_hit_o,
     output logic [4:0]   pcie_destr_eof_o    
 );
 
-    typedef enum logic[1:0] { 
+    typedef enum logic [1:0] { 
         AWAIT_HEADER  ,
         NONSTR_NORMAL ,
         NONSTR_HALFWAY,
         STRADDLED     
     } state_t;
 
+    state_t state, state_next;
+
     logic [63:0] buffer, buffer_next;
     logic flag, flag_next;
 
-    state_t state, state_next;
-    
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             state <= AWAIT_HEADER;
@@ -89,7 +88,6 @@ module kdma_pcie_destraddle (
 
         pcie_destr_valid_o   = '0;
         pcie_destr_data_o    = '0;
-        pcie_destr_last_o    = '0;
         pcie_destr_bar_hit_o = '0;
         pcie_destr_eof_o     = '0;
 
@@ -98,18 +96,16 @@ module kdma_pcie_destraddle (
         case (state)
             AWAIT_HEADER  : begin
                 if (pcie_sof_i == 5'b10000) begin
-                    pcie_destr_valid_o   = pcie_valid_i                                ;
-                    pcie_destr_data_o    = pcie_data_i                                 ;
-                    pcie_destr_last_o    = pcie_eof_i[4]                               ;
-                    pcie_destr_bar_hit_o = pcie_bar_hit_i                              ;
-                    pcie_destr_eof_o     = pcie_eof_i[4] ? 5'h10 | pcie_eof_i[3:0] : '0;
+                    pcie_destr_valid_o   = pcie_valid_i  ;
+                    pcie_destr_data_o    = pcie_data_i   ;
+                    pcie_destr_bar_hit_o = pcie_bar_hit_i;
+                    pcie_destr_eof_o     = pcie_eof_i    ;
                     
                     pcie_ready_o = pcie_destr_ready_i;
                 end
                 else if (pcie_sof_i == 5'b11000) begin
                     pcie_destr_valid_o   = '0;
                     pcie_destr_data_o    = '0;
-                    pcie_destr_last_o    = '0;
                     pcie_destr_bar_hit_o = '0;
                     pcie_destr_eof_o     = '0;
                     
@@ -119,35 +115,24 @@ module kdma_pcie_destraddle (
                 end
             end
             NONSTR_NORMAL : begin
-                if (pcie_sof_i[4] == 0) begin
-                    pcie_destr_valid_o   = pcie_valid_i                                ;
-                    pcie_destr_data_o    = pcie_data_i                                 ;
-                    pcie_destr_last_o    = pcie_eof_i[4]                               ;
-                    pcie_destr_bar_hit_o = pcie_bar_hit_i                              ;
-                    pcie_destr_eof_o     = pcie_eof_i[4] ? 5'h10 | pcie_eof_i[3:0] : '0;
-                    
-                    pcie_ready_o = pcie_destr_ready_i;
-                end
-                else begin
-                    pcie_destr_valid_o   = pcie_valid_i                                ;
-                    pcie_destr_data_o    = pcie_data_i                                 ;
-                    pcie_destr_last_o    = pcie_eof_i[4]                               ;
-                    pcie_destr_bar_hit_o = pcie_bar_hit_i                              ;
-                    pcie_destr_eof_o     = pcie_eof_i[4] ? 5'h10 | pcie_eof_i[3:0] : '0;
-                    
-                    pcie_ready_o = pcie_destr_ready_i;
+                pcie_destr_valid_o   = pcie_valid_i  ;
+                pcie_destr_data_o    = pcie_data_i   ;
+                pcie_destr_bar_hit_o = pcie_bar_hit_i;
+                pcie_destr_eof_o     = pcie_eof_i    ;
+                
+                pcie_ready_o = pcie_destr_ready_i;
 
+                if (pcie_sof_i[4] == 1) begin
                     buffer_next = (pcie_valid_i && pcie_ready_o) ? pcie_data_i[127:64] : buffer;
                 end
             end
             NONSTR_HALFWAY, STRADDLED: begin
                 if (pcie_sof_i[4] == 0) begin
                     if (pcie_eof_i <= 5'b10111) begin
-                        pcie_destr_valid_o   = pcie_valid_i                                ;
-                        pcie_destr_data_o    = {pcie_data_i, buffer[63:0]}                 ;
-                        pcie_destr_last_o    = pcie_eof_i[4]                               ;
-                        pcie_destr_bar_hit_o = pcie_bar_hit_i                              ;
-                        pcie_destr_eof_o     = pcie_eof_i[4] ? 5'h18 | pcie_eof_i[3:0] : '0;
+                        pcie_destr_valid_o   = pcie_valid_i               ;
+                        pcie_destr_data_o    = {pcie_data_i, buffer[63:0]};
+                        pcie_destr_bar_hit_o = pcie_bar_hit_i             ;
+                        pcie_destr_eof_o     = pcie_eof_i | 4'h8          ;
                         
                         pcie_ready_o = pcie_destr_ready_i;
 
@@ -156,7 +141,6 @@ module kdma_pcie_destraddle (
                     else begin
                         pcie_destr_valid_o   = pcie_valid_i                                ;
                         pcie_destr_data_o    = {pcie_data_i, buffer[63:0]}                 ;
-                        pcie_destr_last_o    = flag                                        ;
                         pcie_destr_bar_hit_o = pcie_bar_hit_i                              ;
                         pcie_destr_eof_o     = flag ? 5'h10 | (pcie_eof_i[3:0] & 4'h7) : '0;
                         
@@ -168,11 +152,10 @@ module kdma_pcie_destraddle (
                     end
                 end
                 else begin
-                    pcie_destr_valid_o   = pcie_valid_i                                ;
-                    pcie_destr_data_o    = {pcie_data_i, buffer[63:0]}                 ;
-                    pcie_destr_last_o    = pcie_eof_i[4]                               ;
-                    pcie_destr_bar_hit_o = pcie_bar_hit_i                              ;
-                    pcie_destr_eof_o     = pcie_eof_i[4] ? 5'h18 | pcie_eof_i[3:0] : '0;
+                    pcie_destr_valid_o   = pcie_valid_i               ;
+                    pcie_destr_data_o    = {pcie_data_i, buffer[63:0]};
+                    pcie_destr_bar_hit_o = pcie_bar_hit_i             ;
+                    pcie_destr_eof_o     = pcie_eof_i | 4'h8          ;
                     
                     pcie_ready_o = pcie_destr_ready_i;
 
