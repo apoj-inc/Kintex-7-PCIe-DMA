@@ -1,17 +1,25 @@
-package kdma_pcie_headers;
+package kdma_pcie_headers_pkg;
+
+    // {fmt, tp} decoder
+    parameter RD_32 = 7'b0000000;
+    parameter RD_64 = 7'b0100000;
+    parameter WR_32 = 7'b1000000;
+    parameter WR_64 = 7'b1100000;
+    parameter CPL   = 7'b0001010;
+    parameter CPLD  = 7'b1001010;
 
     typedef struct packed {
-        logic        rsvd_3;
-        logic [1:0]  fmt   ;
-        logic [4:0]  tp    ;
-        logic        rsvd_2;
-        logic [2:0]  qos   ;
-        logic [3:0]  rsvd_1;
-        logic        digest;
-        logic        err   ;
-        logic [1:0]  attr  ;
-        logic [1:0]  rsvd_0;
-        logic [9:0]  length;
+        logic        rsvd_2   ;
+        logic [1:0]  fmt      ;
+        logic [4:0]  tp       ;
+        logic        rsvd_1   ;
+        logic [2:0]  qos      ;
+        logic [3:0]  rsvd_0   ;
+        logic        digest   ;
+        logic        err      ;
+        logic [1:0]  attr     ;
+        logic [1:0]  addr_tran;
+        logic [9:0]  length   ;
     } header_dw0_t;
 
     typedef struct packed {
