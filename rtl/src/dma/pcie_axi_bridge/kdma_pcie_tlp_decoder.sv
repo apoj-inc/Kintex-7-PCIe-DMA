@@ -41,6 +41,7 @@ module kdma_pcie_tlp_decoder #(
 );
 
     logic [31:0] calc;
+    logic [31:0] cpl_data;
 
     typedef enum logic[2:0] {
         AWAIT_HEADER,
@@ -61,7 +62,8 @@ module kdma_pcie_tlp_decoder #(
     logic        error         , error_next         ;
     assign error_o = error;
 
-    logic cpl_sent, cpl_sent_next;
+    logic cpl_sent    , cpl_sent_next    ;
+    logic trigger_last, trigger_last_next;
 
     logic [BAR_COUNT-1:0] bar_we   , bar_we_next   ;
     logic [127:0]         bar_wdata, bar_wdata_next;
@@ -89,8 +91,8 @@ module kdma_pcie_tlp_decoder #(
             byte_cnt_saved <= '0          ;
             error          <= '0          ;
 
-            cpl_sent <= '0;
-            last_cpl <= '0;
+            cpl_sent     <= '0;
+            trigger_last <= '0;
 
             bar_we    <= '0;
             bar_wdata <= '0;
@@ -106,8 +108,8 @@ module kdma_pcie_tlp_decoder #(
             byte_cnt_saved <= byte_cnt_saved_next;
             error          <= error_next         ;
             
-            cpl_sent <= cpl_sent_next;
-            last_cpl <= last_cpl_next;
+            cpl_sent     <= cpl_sent_next    ;
+            trigger_last <= trigger_last_next;
             
             bar_we    <= bar_we_next   ;
             bar_wdata <= bar_wdata_next;
@@ -206,6 +208,7 @@ module kdma_pcie_tlp_decoder #(
 
     always_comb begin
         calc = 0;
+        cpl_data = '0;
 
         req_id_saved_next   = req_id_saved  ;
         tag_saved_next      = tag_saved     ;
@@ -336,6 +339,8 @@ module kdma_pcie_tlp_decoder #(
                             CPLD   : begin
                                 tag_saved_next = cpl_3dw_12_inb.tag;
                                 byte_cnt_saved_next = cpl_3dw_12_inb.byte_cnt;
+
+                                trigger_last_next = ((h_dw0_inb.length << 2) == (cpl_3dw_12_inb.byte_cnt));
                             end
                             default: begin
                                 req_id_saved_next = mr_4dw_123_inb.req_id;
@@ -345,20 +350,106 @@ module kdma_pcie_tlp_decoder #(
                     end
                 end
             end
-            UNSUPPORTED : begin
-                
-            end
-            ABORT       : begin
-                
+            UNSUPPORTED, ABORT: begin
+                if (pcie_detach_valid_i) begin
+                    if (pcie_detach_header_i) begin
+                        pcie_detach_ready_o = '0;
+                    end
+                    else begin
+                        pcie_detach_ready_o = '1;
+                    end
+                end
+                else begin
+                    pcie_detach_ready_o = '1;
+                end
+
+                {h_dw0_outb.rsvd_0, h_dw0_outb.rsvd_1, h_dw0_outb.rsvd_2} = '0;
+                {h_dw0_outb.fmt, h_dw0_outb.tp} = CPL;
+                h_dw0_outb.qos = '0;
+                h_dw0_outb.digset = '0;
+                h_dw0_outb.err = '0;
+                h_dw0_outb.attr = '0;
+                h_dw0_outb.addr_tran = '0;
+                h_dw0_outb.length = '0;
+
+                cpl_3dw_12_outb.req_id = req_id_saved;
+                cpl_3dw_12_outb.tag = tag_saved;
+                cpl_3dw_12_outb.rsvd = '0;
+                cpl_3dw_12_outb.addr_lo = addr_lo_saved;
+                cpl_3dw_12_outb.cpl_id = {bus_number_i, device_number_i, function_number_i};
+                cpl_3dw_12_outb.cpl_sts = (state == UNSUPPORTED) ? STS_UR : STS_CA;
+                cpl_3dw_12_outb.bcm = '0;
+                cpl_3dw_12_outb.byte_cnt = byte_cnt_saved;
+
+                pcie_data_o = {32'h0, cpl_3dw_12_outb, h_dw0_outb};
+                pcie_valid_o = ~cpl_sent;
+                pcie_tkeep_o = 16'h0FFF;
+
+                if (cpl_sent == 0) begin
+                    cpl_sent_next = pcie_valid_o && pcie_ready_i;
+                end
+                else begin
+                    if (pcie_detach_valid_i && pcie_detach_header_i) begin
+                        cpl_sent_next = '0;
+                    end
+                end
             end
             BAR_READ    : begin
+                {h_dw0_outb.rsvd_0, h_dw0_outb.rsvd_1, h_dw0_outb.rsvd_2} = '0;
+                {h_dw0_outb.fmt, h_dw0_outb.tp} = CPL;
+                h_dw0_outb.qos = '0;
+                h_dw0_outb.digset = '0;
+                h_dw0_outb.err = '0;
+                h_dw0_outb.attr = '0;
+                h_dw0_outb.addr_tran = '0;
+                h_dw0_outb.length = 'h1;
+
+                cpl_3dw_12_outb.req_id = req_id_saved;
+                cpl_3dw_12_outb.tag = tag_saved;
+                cpl_3dw_12_outb.rsvd = '0;
+                cpl_3dw_12_outb.addr_lo = addr_lo_saved;
+                cpl_3dw_12_outb.cpl_id = {bus_number_i, device_number_i, function_number_i};
+                cpl_3dw_12_outb.cpl_sts = (state == UNSUPPORTED) ? STS_UR : STS_CA;
+                cpl_3dw_12_outb.bcm = '0;
+                cpl_3dw_12_outb.byte_cnt = byte_cnt_saved;
+
+                cpl_data = '0;
+                for (int i = 0; i < BAR_COUNT; i++) begin
+                    if (bar_hit_saved[i] == '1) begin
+                        cpl_data = cpl_data | bar_rdata_i[i];
+                    end
+                end
                 
+                pcie_data_o = {cpl_data, cpl_3dw_12_outb, h_dw0_outb};
+                pcie_valid_o = ~cpl_sent;
+                pcie_tkeep_o = 16'hFFFF;
+
+                if (cpl_sent == 0) begin
+                    cpl_sent_next = pcie_valid_o && pcie_ready_i;
+                end
+                else begin
+                    if (pcie_detach_valid_i && pcie_detach_header_i) begin
+                        cpl_sent_next = '0;
+                    end
+                end
             end
             BAR_WRITE   : begin
-                
+                pcie_detach_ready_o = ~(|bar_we);
+
+                if (pcie_detach_valid_i && pcie_detach_ready_o) begin
+                    bar_we_next = bar_hit_saved;
+                    bar_wdata_next = pcie_detach_data_i;
+                end
+                else begin
+                    bar_we_next = '0;
+                end
             end
             DMA_READ    : begin
-                
+                dmard_valid_o[tag_saved] = pcie_detach_valid_i;
+                pcie_detach_ready_o = dmard_ready_i[tag_saved];
+
+                dmard_data_o = pcie_detach_data_i;
+                dmard_last_o = trigger_last ? pcie_detach_eof_i[4] : '0;
             end
             default     : begin
                 

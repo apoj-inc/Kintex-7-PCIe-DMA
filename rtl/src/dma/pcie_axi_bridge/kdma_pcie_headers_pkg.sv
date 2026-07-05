@@ -8,6 +8,12 @@ package kdma_pcie_headers_pkg;
     parameter CPL   = 7'b0001010;
     parameter CPLD  = 7'b1001010;
 
+    // sts decoder
+    parameter STS_SC  = 3'b000;
+    parameter STS_UR  = 3'b001;
+    parameter STS_CRS = 3'b010;
+    parameter STS_CA  = 3'b100;
+
     typedef struct packed {
         logic        rsvd_2   ;
         logic [1:0]  fmt      ;
