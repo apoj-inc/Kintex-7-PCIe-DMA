@@ -1,6 +1,7 @@
+rtl/src/dma/pcie_axi_bridge/kdma_pcie_headers_pkg.sv
 rtl/src/dma/pcie_axi_bridge/kdma_pcie_destraddle.sv
 rtl/src/dma/pcie_axi_bridge/kdma_pcie_header_detacher.sv
-rtl/src/dma/pcie_axi_bridge/kdma_pcie_stream_reshuffle.sv
-rtl/src/dma/pcie_axi_bridge/kdma_pcie_headers_pkg.sv
+rtl/src/dma/pcie_axi_bridge/kdma_pcie_tlp_decoder.sv
+rtl/src/dma/pcie_axi_bridge/kdma_pcie_tlp_rearrange_decode.sv
 rtl/src/primitives/stream_arbiter.sv
 rtl/src/primitives/stream_fifo.sv
