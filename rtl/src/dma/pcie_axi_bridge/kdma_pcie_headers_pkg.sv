@@ -60,9 +60,9 @@ package kdma_pcie_headers_pkg;
         logic [6:0]  addr_lo ;
         // DW[1]
         logic [15:0] cpl_id  ;
-        logic [7:0]  cpl_sts ;
+        logic [2:0]  cpl_sts ;
         logic        bcm     ;
-        logic [6:0]  byte_cnt;
+        logic [11:0] byte_cnt;
     } cpl_3dw_12_t;
     
 endpackage

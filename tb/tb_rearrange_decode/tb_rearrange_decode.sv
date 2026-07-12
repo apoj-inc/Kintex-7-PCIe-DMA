@@ -50,6 +50,15 @@ logic [2:0]                function_number_i            ;
 
 logic                      error_o                      ;
 
+logic dmard_valid_mon;
+logic dmard_ready_mon;
+
+assign dmard_valid_mon = |dmard_valid_o;
+assign dmard_ready_mon = |(dmard_valid_o & dmard_ready_i);
+
+logic [31:0] data_32;
+logic [95:0] data_96;
+
 kdma_pcie_tlp_rearrange_decode #(
     .BAR_COUNT         (BAR_COUNT        ),
 
@@ -106,10 +115,12 @@ always_ff @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
         pcie_ready_i <= '0;
         bar_pready_i <= '0;
+        dmard_ready_i <= '0;
     end
     else begin
         pcie_ready_i <= $urandom();
         bar_pready_i <= $urandom();
+        dmard_ready_i <= $urandom();
     end
 end
 
@@ -155,13 +166,13 @@ memory_request_4dw_123_t mr4d, mr4d_in, mr4d_out;
 cpl_3dw_12_t             cpl3, cpl3_in, cpl3_out;
 
 assign hdw0_out = pcie_data_o[31:0];
-assign mr3d_out = pcie_data_o[127:32];
-assign mr4d_out = pcie_data_o[95:32];
+assign mr3d_out = pcie_data_o[95:32];
+assign mr4d_out = pcie_data_o[127:32];
 assign cpl3_out = pcie_data_o[95:32];
 
 assign hdw0_in = pcie_data_i[31:0];
-assign mr3d_in = pcie_data_i[127:32];
-assign mr4d_in = pcie_data_i[95:32];
+assign mr3d_in = pcie_data_i[95:32];
+assign mr4d_in = pcie_data_i[127:32];
 assign cpl3_in = pcie_data_i[95:32];
 
 initial begin
@@ -177,7 +188,7 @@ initial begin
         mr3d.req_id = $urandom();
         mr3d.tag = $urandom();
 
-        $display("Transaction: addr %x, id %x, tag %x", mr3d.addr, mr3d.req_id, mr3d.tag);
+        $display("Transaction WR_32: addr %x, id %x, tag %x", mr3d.addr, mr3d.req_id, mr3d.tag);
         if (hdw0.length == 1) begin
             pcie_data_queue.push_back({32'($urandom()), mr3d, hdw0, 5'b10000, 5'b11111, 8'(1 << ($urandom_range(0, BAR_COUNT-1)))});
         end
@@ -199,7 +210,7 @@ initial begin
         mr3d.req_id = $urandom();
         mr3d.tag = $urandom();
 
-        $display("Transaction: addr %x, id %x, tag %x", mr3d.addr, mr3d.req_id, mr3d.tag);
+        $display("Transaction RD_32: addr %x, id %x, tag %x", mr3d.addr, mr3d.req_id, mr3d.tag);
         pcie_data_queue.push_back({32'b0, mr3d, hdw0, 5'b10000, 5'b11011, 8'(1 << ($urandom_range(0, BAR_COUNT-1)))});
     end
     
@@ -216,7 +227,7 @@ initial begin
         mr4d.req_id = $urandom();
         mr4d.tag = $urandom();
 
-        $display("Transaction: addr %x, id %x, tag %x", {mr4d.addr_hi, mr4d.addr_lo}, mr4d.req_id, mr4d.tag);
+        $display("Transaction WR_64: addr %x, id %x, tag %x", {mr4d.addr_hi, mr4d.addr_lo}, mr4d.req_id, mr4d.tag);
         bar_hit_buf = 8'(1 << ($urandom_range(0, BAR_COUNT-1)));
         pcie_data_queue.push_back({mr4d, hdw0, 5'b10000, 5'b00000, bar_hit_buf});
         pcie_data_queue.push_back({32'($urandom()), 32'($urandom()),32'($urandom()), 32'($urandom()),  5'b00000, 1'b1, 4'((hdw0.length)*4-1), bar_hit_buf});
@@ -234,8 +245,34 @@ initial begin
         mr4d.req_id = $urandom();
         mr4d.tag = $urandom();
 
-        $display("Transaction: addr %x, id %x, tag %x", {mr4d.addr_hi, mr4d.addr_lo}, mr4d.req_id, mr4d.tag);
+        $display("Transaction RD_64: addr %x, id %x, tag %x", {mr4d.addr_hi, mr4d.addr_lo}, mr4d.req_id, mr4d.tag);
         pcie_data_queue.push_back({32'b0, mr3d, hdw0, 5'b10000, 5'b11111, 8'(1 << ($urandom_range(0, BAR_COUNT-1)))});
+    end
+    
+    for (int i = 1; i <= 256; i++) begin
+        {hdw0.rsvd_2, hdw0.rsvd_1, hdw0.rsvd_0, hdw0.qos, hdw0.digest, hdw0.err, hdw0.attr, hdw0.addr_tran} = '0;
+        {hdw0.fmt, hdw0.tp} = CPLD;
+        hdw0.length = i;
+        
+        cpl3.req_id   = {bus_number_i, device_number_i, function_number_i};
+        cpl3.tag      = $urandom_range(0, TOTAL_ID_COUNT-1);
+        cpl3.rsvd     = '0;
+        cpl3.addr_lo  = '0;
+        cpl3.cpl_id   = $urandom();
+        cpl3.cpl_sts  = STS_SC;
+        cpl3.bcm      = '0;
+        cpl3.byte_cnt = i * 4;
+        
+        $display("Transaction CPLD: id %x, tag %d, len %d", cpl3.cpl_id, cpl3.tag, i);
+        data_32 = 32'($urandom());
+        pcie_data_queue.push_back({data_32, cpl3, hdw0, 5'b10000, 5'b00000, 8'h0});
+
+        for (int j = 0; j < i; j++) begin
+            data_96 = {32'($urandom()), 32'($urandom()), 32'($urandom())};
+            $display("    Data %d: %h", j, {data_96, data_32});
+            data_32 = 32'($urandom());
+            pcie_data_queue.push_back({data_32, data_96, 5'b00000, 1'(j == i-1), 4'b1011, 8'h0});
+        end
     end
 end
     

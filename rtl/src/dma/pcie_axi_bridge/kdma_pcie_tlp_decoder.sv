@@ -252,6 +252,9 @@ module kdma_pcie_tlp_decoder #(
         calc = 0;
         pcie_detach_ready_o = '0;
 
+        dmard_valid_o = '0;
+        dmard_last_o = '0;
+
         pcie_valid_o = '0;
         pcie_data_o  = '0;
         pcie_tkeep_o = '0;

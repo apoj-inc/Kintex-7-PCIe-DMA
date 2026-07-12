@@ -6,7 +6,7 @@ async def test(dut):
     await RisingEdge(dut.clk)
 
     task_awaiter = RisingEdge(dut.test_done)
-    timeout = Timer(300_000, unit='ns')
+    timeout = Timer(1_000_000, unit='ns')
 
     result = await First(
         timeout,
