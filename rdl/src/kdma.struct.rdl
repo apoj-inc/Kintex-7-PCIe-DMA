@@ -1,0 +1,105 @@
+`ifndef __KDMA__STRUCT__RDL__
+`define __KDMA__STRUCT__RDL__
+
+regfile kdma_struct_rf #(
+    bit DMA_DATA_WIDTH = 128
+) {
+    desc = "KDMA channel struct control and status register";
+
+    default regwidth = 128;
+
+    reg ptr_addr_width_r {
+        desc = "Contains a pointer to next KDMA channel struct, an address of a persistent DMA buffer and DMA data width";
+
+        field {
+            desc = "DMA data width";
+            hw   = na;
+            sw   = r;
+        } DMA_BYTES[127:96] = DMA_DATA_WIDTH/8;
+
+        field {
+            desc = "Address of persistent DMA buffer";
+            hw   = r;
+            sw   = rw;
+        } DMA_ADDR[95:32] = 0x0;
+
+        field {
+            desc = "Pointer to next strcut";
+            hw   = w;
+            sw   = r;
+        } STRUCT_NEXT_PTR[31:0];
+    };
+
+    reg fifo_info_r {
+        desc = "Contains KDMA FIFO bytecount and number of free/busy entries";
+
+        field {
+            desc = "Number of free entries in DMA read FIFO";
+            hw   = w;
+            sw   = r;
+        } RDATA_FREE[127:96] = 0x0;
+
+        field {
+            desc = "Number of busy entries in DMA write FIFO";
+            hw   = w;
+            sw   = r;
+        } WDATA_CONUT[95:64] = 0x0;
+
+        field {
+            desc = "Maximum DMA read FIFO bytecount";
+            hw   = w;
+            sw   = r;
+        } MAX_RD_SIZE[63:32];
+
+        field {
+            desc = "Maximum DMA write FIFO bytecount";
+            hw   = w;
+            sw   = r;
+        } MAX_WR_SIZE[31:0];
+    };
+
+    reg irq_csr_r {
+        desc = "Contains IRQ control and status fields";
+
+        field {
+            desc = "Reserved";
+            hw   = na;
+            sw   = r;
+        } RSVD[127:4] = 0x0;
+
+        field {
+            desc = "DMARD finished IRQ status";
+            hw   = w;
+            sw   = r;
+        } DMARD_IRQ_STS[3:3] = 0x0;
+
+        field {
+            desc = "DMAWR finished IRQ status";
+            hw   = w;
+            sw   = r;
+        } DMAWR_IRQ_STS[2:2] = 0x0;
+
+        field {
+            desc = "Clear DMARD finished IRQ";
+            hw   = r;
+            sw   = rw;
+
+            singlepulse;
+        } DMARD_IRQ_CLR[1:1] = 0x0;
+
+        field {
+            desc = "Clear DMAWR finished IRQ";
+            hw   = r;
+            sw   = rw;
+
+            singlepulse;
+        } DMAWR_IRQ_CLR[0:0] = 0x0;
+    };
+
+    ptr_addr_width_r PTR_ADDR_WIDTH_REG;
+    fifo_info_r FIFO_INFO_REG;
+    irq_csr_r IRQ_CSR_REG;
+    
+};
+
+`endif

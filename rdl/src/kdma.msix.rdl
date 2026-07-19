@@ -1,0 +1,43 @@
+`ifndef __KDMA__MSIX__RDL__
+`define __KDMA__MSIX__RDL__
+
+addrmap kdma_msix_am #(
+    bit DMA_CHANNEL_COUNT = 8
+) {
+    desc = "MSIX table";
+
+    default regwidth = 128;
+
+    reg msix_entry_rf {
+        desc = "MSIX entry contains mask, addr and data";
+        
+        field {
+            desc = "Reserved";
+            hw   = na;
+            sw   = r;
+        } RSVD[127:97] = 0x0;
+        
+        field {
+            desc = "Mask";
+            hw   = r;
+            sw   = rw;
+        } MASK[96:96] = 0x1;
+        
+        field {
+            desc = "Data";
+            hw   = r;
+            sw   = rw;
+        } DATA[95:64] = 0x0;
+        
+        field {
+            desc = "Address";
+            hw   = r;
+            sw   = rw;
+        } ADDR[63:0] = 0x0;
+    };
+
+    msix_entry_rf MSIX_ENTRY_REG[DMA_CHANNEL_COUNT*2];
+    
+};
+
+`endif

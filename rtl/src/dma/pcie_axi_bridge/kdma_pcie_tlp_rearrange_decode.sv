@@ -34,6 +34,7 @@ module kdma_pcie_tlp_rearrange_decode #(
     input  logic                      pcie_ready_i                 ,
     output logic [127:0]              pcie_data_o                  ,
     output logic [15:0]               pcie_tkeep_o                 ,
+    output logic                      pcie_tlast_o                 ,
 
     input  logic [7:0]                bus_number_i                 ,
     input  logic [4:0]                device_number_i              ,
@@ -83,10 +84,12 @@ module kdma_pcie_tlp_rearrange_decode #(
         .data_i  ({pcie_destr_data_wr, pcie_destr_bar_hit_wr, pcie_destr_eof_wr}),
         .valid_i (pcie_destr_valid_wr),
         .ready_o (pcie_destr_ready_wr),
+        .free_o  (),
 
         .data_o  ({pcie_destr_data_rd, pcie_destr_bar_hit_rd, pcie_destr_eof_rd}),
         .valid_o (pcie_destr_valid_rd),
-        .ready_i (pcie_destr_ready_rd)
+        .ready_i (pcie_destr_ready_rd),
+        .count_o ()
     );
 
     kdma_pcie_header_detacher u_kdma_pcie_header_detacher (
@@ -141,6 +144,7 @@ module kdma_pcie_tlp_rearrange_decode #(
         .pcie_ready_i          (pcie_ready_i       ),
         .pcie_data_o           (pcie_data_o        ),
         .pcie_tkeep_o          (pcie_tkeep_o       ),
+        .pcie_tlast_o          (pcie_tlast_o       ),
 
         .bus_number_i          (bus_number_i       ),
         .device_number_i       (device_number_i    ),

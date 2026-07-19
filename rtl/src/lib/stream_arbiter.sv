@@ -78,7 +78,7 @@ module stream_arbiter #(
                 .count_o ()
             );
         end
-        else begin
+        else begin : comb_through
             assign sel_o = current_grant;
 
             always_comb begin

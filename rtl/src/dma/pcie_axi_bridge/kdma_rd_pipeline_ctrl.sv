@@ -1,34 +1,39 @@
+import kdma_pcie_headers_pkg::*;
+
 module kdma_rd_pipeline_ctrl #(
     parameter DMA_CHANNEL_COUNT = 8,
     parameter PIPELINE_CAPACITY = 4,
 
-    parameter TOTAL_ID_COUNT     = DMA_CHANNEL_COUNT * PIPELINE_CAPACITY,
-    parameter TOTAL_ID_COUNT_W   = TOTAL_ID_COUNT == 1 ? 1 : $clog2(TOTAL_ID_COUNT),
-    parameter ID_LOWER_BYTECOUNT = PIPELINE_CAPACITY == 1 ? 1 : $clog2(PIPELINE_CAPACITY)
+    parameter ID_W = PIPELINE_CAPACITY == 1 ? 1 : $clog2(PIPELINE_CAPACITY)
 ) (
     input  logic                          clk                                      ,
     input  logic                          rst_n                                    ,
 
-    input  logic                          arvalid_i             [DMA_CHANNEL_COUNT],
-    output logic                          arready_o             [DMA_CHANNEL_COUNT],
+    input  logic [DMA_CHANNEL_COUNT-1:0]  arvalid_i                                ,
+    output logic [DMA_CHANNEL_COUNT-1:0]  arready_o                                ,
     input  logic [63:0]                   araddr_i              [DMA_CHANNEL_COUNT],
     input  logic [7:0]                    arlen_i               [DMA_CHANNEL_COUNT],
-    input  logic [2:0]                    arsize_i              [DMA_CHANNEL_COUNT],
+    input  logic [ID_W-1:0]               arid_i                [DMA_CHANNEL_COUNT],
     input  logic [1:0]                    arburst_i             [DMA_CHANNEL_COUNT],
-    input  logic [TOTAL_ID_COUNT_W-1:0]   arid_i                [DMA_CHANNEL_COUNT],
+    input  logic [2:0]                    arsize_i              [DMA_CHANNEL_COUNT],
 
-    output logic [DMA_CHANNEL_COUNT-1:0]  fifo_mux_sel_o                           ,
+    output logic [DMA_CHANNEL_COUNT-1:0]  err_valid_o                              ,
+    input  logic [DMA_CHANNEL_COUNT-1:0]  err_ready_i                              ,
+    output logic [ID_W-1:0]               err_id_o              [DMA_CHANNEL_COUNT],
+    output logic [7:0]                    err_len_o             [DMA_CHANNEL_COUNT],
+
+    output logic [ID_W-1:0]               fifo_mux_sel_o        [DMA_CHANNEL_COUNT],
+    output logic                          fifo_gate_o           [DMA_CHANNEL_COUNT],
 
     input  logic [DMA_CHANNEL_COUNT-1:0]  id_fifo_snoop_valid_i                    ,
     input  logic [DMA_CHANNEL_COUNT-1:0]  id_fifo_snoop_ready_i                    ,
-
-    output logic [DMA_CHANNEL_COUNT-1:0]  err_o                                    ,
-    output logic [ID_LOWER_BYTECOUNT-1:0] err_id_o              [DMA_CHANNEL_COUNT],
-    input  logic [DMA_CHANNEL_COUNT-1:0]  err_clr_i                                ,
+    input  logic [DMA_CHANNEL_COUNT-1:0]  id_fifo_snoop_last_i                     ,
 
     output logic [DMA_CHANNEL_COUNT-1:0]  pcie_valid_o                             ,
     input  logic [DMA_CHANNEL_COUNT-1:0]  pcie_ready_i                             ,
-    output logic [127:0]                  pcie_header_o         [DMA_CHANNEL_COUNT],
+    output logic [127:0]                  pcie_data_o           [DMA_CHANNEL_COUNT],
+    output logic [15:0]                   pcie_tkeep_o          [DMA_CHANNEL_COUNT],
+    output logic [DMA_CHANNEL_COUNT-1:0]  pcie_tlast_o                             ,
 
     input  logic [7:0]                    bus_number_i                             ,
     input  logic [4:0]                    device_number_i                          ,
@@ -39,77 +44,48 @@ module kdma_rd_pipeline_ctrl #(
         genvar i;
 
         for (i = 0; i < DMA_CHANNEL_COUNT; i++) begin : dma_channels
-            logic [ID_LOWER_BYTECOUNT-1:0] id_busy;
+            logic [PIPELINE_CAPACITY-1:0] id_busy;
+            logic [ID_W-1:0] exp_id;
 
-            logic pipeline_fifo_ready_wr;
             logic pipeline_fifo_valid_rd, pipeline_fifo_ready_rd;
 
-            logic exp_id, exp_len;
+            header_dw0_t hdw0;
+            memory_request_3dw_12_t mr3;
+            memory_request_4dw_123_t mr4;
 
-            logic [9:0] snoop_counter;
-
-            logic [31:0] pcie_header_dwords [4];
-
-            logic         pcie_valid_fifo_wr ;
-            logic [127:0] pcie_header_fifo_wr;
-
-            assign fifo_mux_sel_o[i] = pipeline_fifo_valid_rd ? exp_id[ID_LOWER_BYTECOUNT-1:0] : '0;
+            assign fifo_mux_sel_o[i] = pipeline_fifo_valid_rd ? exp_id : '0;
+            assign fifo_gate_o[i] = pipeline_fifo_valid_rd;
+            assign pcie_tlast_o[i] = '1;
 
             stream_fifo #(
-                .DATA_WIDTH (TOTAL_ID_COUNT_W ),
-                .FIFO_DEPTH (PIPELINE_CAPACITY)
+                .DATA_WIDTH (ID_W              ),
+                .FIFO_DEPTH (PIPELINE_CAPACITY )
             ) u_stream_fifo_pipeline (
-                .ACLK    (clk  )
-                .ARESETn (rst_n)
+                .ACLK    (clk  ),
+                .ARESETn (rst_n),
                 
-                .data_i  ({arlen_i[i], arid_i[i]})
-                .valid_i (arvalid_i[i] & arready_o[i])
-                .ready_o (pipeline_fifo_ready_wr)
-                .free_o  ()
+                .data_i  ({arid_i[i]}),
+                .valid_i (pcie_valid_o[i] & pcie_ready_i[i]),
+                .ready_o (),
+                .free_o  (),
 
-                .data_o  ({exp_len, exp_id})
-                .valid_o (pipeline_fifo_valid_rd)
-                .ready_i (pipeline_fifo_ready_rd)
+                .data_o  ({exp_id}),
+                .valid_o (pipeline_fifo_valid_rd),
+                .ready_i (pipeline_fifo_ready_rd),
                 .count_o ()
             );
 
-            stream_fifo #(
-                .DATA_WIDTH (128),
-                .FIFO_DEPTH (PIPELINE_CAPACITY)
-            ) u_stream_fifo_to_pcie (
-                .ACLK    (clk  )
-                .ARESETn (rst_n)
-                
-                .data_i  (pcie_header_fifo_wr)
-                .valid_i (pcie_valid_fifo_wr )
-                .ready_o ()
-                .free_o  ()
-
-                .data_o  (pcie_header_o[i])
-                .valid_o (pcie_valid_o[i] )
-                .ready_i (pcie_ready_i[i] )
-                .count_o ()
-            );
-
-            always_ff @(posedge clk or negedge rst_n) begin
-                if (!rst_n) begin
-                    snoop_counter <= '0;
-                    pipeline_fifo_ready_rd <= '0;
-                end
-                else begin
-                    if (id_fifo_snoop_valid_i[i] && id_fifo_snoop_ready_i[i]) begin
-                        if (snoop_counter + 1 == exp_len) begin
-                            snoop_counter <= '0;
-                            pipeline_fifo_ready_rd <= '1;
-                        end
-                        else begin
-                            snoop_counter <= snoop_counter + 1;
-                            pipeline_fifo_ready_rd <= '0;
-                        end
+            always_comb begin
+                if (id_fifo_snoop_valid_i[i] && id_fifo_snoop_ready_i[i]) begin
+                    if (id_fifo_snoop_last_i[i]) begin
+                        pipeline_fifo_ready_rd = '1;
                     end
                     else begin
-                        pipeline_fifo_ready_rd <= '0;
+                        pipeline_fifo_ready_rd = '0;
                     end
+                end
+                else begin
+                    pipeline_fifo_ready_rd = '0;
                 end
             end
 
@@ -118,54 +94,56 @@ module kdma_rd_pipeline_ctrl #(
                     id_busy <= '0;
                 end
                 else begin
-                    if (arvalid_i[i] && arready_o[i]) begin
-                        if ((arid_i[i] >> ID_LOWER_BYTECOUNT) == DMA_CHANNEL_COUNT) begin
-                            id_busy[arid_i[i][0 +: ID_LOWER_BYTECOUNT]] <= '1;
-                        end
+                    if (pcie_valid_o[i] && pcie_ready_i[i]) begin
+                        id_busy[arid_i[i]] <= '1;
                     end
                     else begin
-                        if (pipeline_fifo_ready_rd) begin
-                            id_busy[arid_i[i][0 +: ID_LOWER_BYTECOUNT]] <= '0;
+                        if (id_fifo_snoop_valid_i[i] && id_fifo_snoop_ready_i[i]) begin
+                            if (id_fifo_snoop_last_i[i]) begin
+                                id_busy[exp_id] <= '0;
+                            end
                         end
-                    end
-                end
-            end
-
-            always_ff @(posedge clk or negedge rst_n) begin
-                if (!rst_n) begin
-                    arready_o[i] <= '0;
-                end
-                else begin
-                    if ((arid_i[i] >> ID_LOWER_BYTECOUNT) == DMA_CHANNEL_COUNT) begin
-                        if (!id_busy[arid_i[i][0 +: ID_LOWER_BYTECOUNT]]) begin
-                            arready_o[i] <= pipeline_fifo_ready_wr;
-                        end
-                        else begin
-                            arready_o[i] <= '0;
-                        end
-                    end
-                    else begin
-                        arready_o[i] <= '0;
                     end
                 end
             end
 
             always_comb begin
-                pcie_header_dwords[0] = {1'h0, 2'b11, 5'h0, 1'b0, 3'h0, 4'h0, 1'h0, 1'h0, 2'h0, 2'h0, 10'(arlen_i)}; // rsvd, fmt, type, rsvd, qos, rsvd, digest, error poison, attribs, rsvd, length
-                pcie_header_dwords[1] = {bus_number_i, device_number_i, function_number_i, 8'(arid_i), 4'h0, 4'h0}; // first 3 - req id, tag, last dw be, 1st dw be
-                pcie_header_dwords[2] = {araddr_i[63:32]};
-                pcie_header_dwords[3] = {araddr_i[31:2], 2'b0}; // 32-bit alignment
-            end
-
-            always_ff @(posedge clk or negedge rst_n) begin
-                if (!rst_n) begin
-                    pcie_valid_fifo_wr <= '0;
-                    pcie_header_fifo_wr <= '0;
+                if (id_busy[arid_i[i]] == '0) begin
+                    arready_o[i]    = ((arburst_i[i] == 2'b01) && (arsize_i[i] == 3'b100)) ? pcie_ready_i[i] : err_ready_i[i];
+                    pcie_valid_o[i] = ((arburst_i[i] == 2'b01) && (arsize_i[i] == 3'b100)) ? arvalid_i[i] : '0;
+                    err_valid_o[i]  = ((arburst_i[i] == 2'b01) && (arsize_i[i] == 3'b100)) ? '0 : arvalid_i[i];
                 end
                 else begin
-                    pcie_header_fifo_wr <= {pcie_header_dwords[3], pcie_header_dwords[2], pcie_header_dwords[1], pcie_header_dwords[0]}
-                    pcie_valid_fifo_wr <= arvalid_i[i] && arready_o[i];
+                    arready_o[i]    = '0;
+                    pcie_valid_o[i] = '0;
+                    err_valid_o[i]  = '0;
                 end
+            end
+
+            always_comb begin
+                {hdw0.rsvd_2, hdw0.rsvd_1, hdw0.qos, hdw0.rsvd_0, hdw0.digest, hdw0.err, hdw0.attr, hdw0.addr_tran} = '0;
+                {hdw0.fmt, hdw0.tp} = araddr_i[i][63:32] == '0 ? RD_32 : RD_64;
+                hdw0.length = arlen_i[i] >> 2;
+
+                mr3.addr   = {araddr_i[i][31:4], 2'b0};
+                mr3.rsvd   = '0;
+                mr3.req_id = {bus_number_i, device_number_i, function_number_i};
+                mr3.tag    = (i << ID_W) | arid_i[i];
+                mr3.ldw_be = '1;
+                mr3.fdw_be = '1;
+
+                {mr4.addr_hi, mr4.addr_lo} = {araddr_i[i][63:4], 2'b0};
+                mr4.rsvd   = '0;
+                mr4.req_id = {bus_number_i, device_number_i, function_number_i};
+                mr4.tag    = (i << ID_W) | arid_i[i];
+                mr4.ldw_be = '1;
+                mr4.fdw_be = '1;
+
+                pcie_data_o[i]  = araddr_i[i][63:32] == '0 ? {32'h0, mr3, hdw0} : {mr4, hdw0};
+                pcie_tkeep_o[i] = araddr_i[i][63:32] == '0 ? 16'h0FFF : 16'hFFFF;
+
+                err_id_o[i]  = arid_i[i] ;
+                err_len_o[i] = arlen_i[i];
             end
         end
     endgenerate

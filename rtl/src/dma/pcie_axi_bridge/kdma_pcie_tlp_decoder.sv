@@ -36,6 +36,7 @@ module kdma_pcie_tlp_decoder #(
     input  logic                      pcie_ready_i                     ,
     output logic [127:0]              pcie_data_o                      ,
     output logic [15:0]               pcie_tkeep_o                     ,
+    output logic                      pcie_tlast_o                     ,
 
     input  logic [7:0]                bus_number_i                     ,
     input  logic [4:0]                device_number_i                  ,
@@ -43,8 +44,6 @@ module kdma_pcie_tlp_decoder #(
 
     output logic                      error_o                          
 );
-
-    logic [31:0] calc;
 
     typedef enum logic[2:0] {
         AWAIT_HEADER,
@@ -59,8 +58,6 @@ module kdma_pcie_tlp_decoder #(
     state_t state, state_next;
 
     logic [31:0]  cnt, cnt_next;
-
-    logic [31:0] kal;
 
     logic [15:0]  req_id_saved  , req_id_saved_next  ;
     logic [7:0]   tag_saved     , tag_saved_next     ;
@@ -90,8 +87,8 @@ module kdma_pcie_tlp_decoder #(
     assign bar_pstrb_o   = bar_pstrb  ;
 
     header_dw0_t             h_dw0_inb     , h_dw0_outb     ;
-    memory_request_3dw_12_t  mr_3dw_12_inb , mr_3dw_12_outb ;
-    memory_request_4dw_123_t mr_4dw_123_inb, mr_4dw_123_outb;
+    memory_request_3dw_12_t  mr_3dw_12_inb                  ;
+    memory_request_4dw_123_t mr_4dw_123_inb                 ;
     cpl_3dw_12_t             cpl_3dw_12_inb, cpl_3dw_12_outb;
     assign h_dw0_inb      = pcie_detach_data_i[0  +: 32];
     assign mr_3dw_12_inb  = pcie_detach_data_i[32 +: 64];
@@ -160,7 +157,7 @@ module kdma_pcie_tlp_decoder #(
                     if (pcie_detach_header_i) begin
                         case ({h_dw0_inb.fmt, h_dw0_inb.tp})
                             RD_32, RD_64: begin
-                                if (h_dw0_inb.length > (4 - (({h_dw0_inb.fmt, h_dw0_inb.tp} == RD_32) ? (mr_3dw_12_inb.addr[1:0]) : (mr_4dw_123_inb.addr_lo[1:0])))) begin
+                                if (h_dw0_inb.length > (4 - 32'(({h_dw0_inb.fmt, h_dw0_inb.tp} == RD_32) ? (mr_3dw_12_inb.addr[1:0]) : (mr_4dw_123_inb.addr_lo[1:0])))) begin
                                     state_next = ABORT;
                                 end
                                 else begin
@@ -168,7 +165,7 @@ module kdma_pcie_tlp_decoder #(
                                 end
                             end
                             WR_32, WR_64: begin
-                                if (h_dw0_inb.length > (4 - (({h_dw0_inb.fmt, h_dw0_inb.tp} == WR_32) ? (mr_3dw_12_inb.addr[1:0]) : (mr_4dw_123_inb.addr_lo[1:0])))) begin
+                                if (h_dw0_inb.length > (4 - 32'(({h_dw0_inb.fmt, h_dw0_inb.tp} == WR_32) ? (mr_3dw_12_inb.addr[1:0]) : (mr_4dw_123_inb.addr_lo[1:0])))) begin
                                     state_next = ABORT;
                                 end
                                 else if (mr_3dw_12_inb.fdw_be != 4'b1111) begin
@@ -249,15 +246,16 @@ module kdma_pcie_tlp_decoder #(
     end
 
     always_comb begin
-        calc = 0;
         pcie_detach_ready_o = '0;
 
         dmard_valid_o = '0;
+        dmard_data_o = '0;
         dmard_last_o = '0;
 
         pcie_valid_o = '0;
         pcie_data_o  = '0;
         pcie_tkeep_o = '0;
+        pcie_tlast_o = '0;
 
         cnt_next = cnt;
 
@@ -271,7 +269,8 @@ module kdma_pcie_tlp_decoder #(
         cpl_data_next       = cpl_data      ;
         error_next          = error         ;
 
-        cpl_sent_next = cpl_sent;
+        cpl_sent_next     = cpl_sent    ;
+        trigger_last_next = trigger_last;
 
         bar_psel_next    = bar_psel   ;
         bar_penable_next = bar_penable;
@@ -281,8 +280,6 @@ module kdma_pcie_tlp_decoder #(
         bar_pstrb_next   = bar_pstrb  ;
 
         h_dw0_outb      = '0;
-        mr_3dw_12_outb  = '0;
-        mr_4dw_123_outb = '0;
         cpl_3dw_12_outb = '0;
 
         case (state)
@@ -304,6 +301,7 @@ module kdma_pcie_tlp_decoder #(
                                     4'b??10: addr_lo_saved_next = 2'b01;
                                     4'b?100: addr_lo_saved_next = 2'b10;
                                     4'b1000: addr_lo_saved_next = 2'b11;
+                                    default: addr_lo_saved_next = 2'b00;
                                 endcase
 
                                 if (mr_3dw_12_inb.ldw_be == '0) begin
@@ -319,6 +317,7 @@ module kdma_pcie_tlp_decoder #(
                                         4'b0100: byte_cnt_saved_next = 1;
                                         4'b1000: byte_cnt_saved_next = 1;
                                         4'b0000: byte_cnt_saved_next = 1;
+                                        default: byte_cnt_saved_next = 4;
                                     endcase
                                 end
                                 else begin
@@ -330,6 +329,7 @@ module kdma_pcie_tlp_decoder #(
                                         4'b?100: byte_cnt_saved_next = byte_cnt_saved_next - 2;
                                         4'b1000: byte_cnt_saved_next = byte_cnt_saved_next - 3;
                                         4'b0000: byte_cnt_saved_next = byte_cnt_saved_next - 3;
+                                        default: byte_cnt_saved_next = byte_cnt_saved_next - 0;
                                     endcase
 
                                     casez (mr_3dw_12_inb.ldw_be)
@@ -338,12 +338,13 @@ module kdma_pcie_tlp_decoder #(
                                         4'b001?: byte_cnt_saved_next = byte_cnt_saved_next - 2;
                                         4'b0001: byte_cnt_saved_next = byte_cnt_saved_next - 3;
                                         4'b0000: byte_cnt_saved_next = byte_cnt_saved_next - 3;
+                                        default: byte_cnt_saved_next = byte_cnt_saved_next - 0;
                                     endcase
                                 end
 
                                 bar_hit_saved_next = pcie_detach_bar_hit_i;
            
-                                bar_psel_next     = {h_dw0_inb.fmt, h_dw0_inb.tp} == RD_32 ? pcie_detach_bar_hit_i : '0;
+                                bar_psel_next     = {h_dw0_inb.fmt, h_dw0_inb.tp} == RD_32 ? BAR_COUNT'(pcie_detach_bar_hit_i) : '0;
                                 bar_paddr_next    = {32'h0, mr_3dw_12_inb.addr[29:2], 4'h0};
                                 bar_pstrb_next    = h_dw0_inb.length == 4 ? 16'hFFFF << {mr_3dw_12_inb.addr[1:0], 2'b0} :
                                                     h_dw0_inb.length == 3 ? 16'h0FFF << {mr_3dw_12_inb.addr[1:0], 2'b0} :
@@ -362,6 +363,7 @@ module kdma_pcie_tlp_decoder #(
                                     4'b??10: addr_lo_saved_next = 2'b01;
                                     4'b?100: addr_lo_saved_next = 2'b10;
                                     4'b1000: addr_lo_saved_next = 2'b11;
+                                    default: addr_lo_saved_next = 2'b00;
                                 endcase
 
                                 if (mr_4dw_123_inb.ldw_be == '0) begin
@@ -377,6 +379,7 @@ module kdma_pcie_tlp_decoder #(
                                         4'b0100: byte_cnt_saved_next = 1;
                                         4'b1000: byte_cnt_saved_next = 1;
                                         4'b0000: byte_cnt_saved_next = 1;
+                                        default: byte_cnt_saved_next = 4;
                                     endcase
                                 end
                                 else begin
@@ -388,6 +391,7 @@ module kdma_pcie_tlp_decoder #(
                                         4'b?100: byte_cnt_saved_next = byte_cnt_saved_next - 2;
                                         4'b1000: byte_cnt_saved_next = byte_cnt_saved_next - 3;
                                         4'b0000: byte_cnt_saved_next = byte_cnt_saved_next - 3;
+                                        default: byte_cnt_saved_next = byte_cnt_saved_next - 0;
                                     endcase
 
                                     casez (mr_4dw_123_inb.ldw_be)
@@ -396,12 +400,13 @@ module kdma_pcie_tlp_decoder #(
                                         4'b001?: byte_cnt_saved_next = byte_cnt_saved_next - 2;
                                         4'b0001: byte_cnt_saved_next = byte_cnt_saved_next - 3;
                                         4'b0000: byte_cnt_saved_next = byte_cnt_saved_next - 3;
+                                        default: byte_cnt_saved_next = byte_cnt_saved_next - 0;
                                     endcase
                                 end
 
                                 bar_hit_saved_next = pcie_detach_bar_hit_i;
                                 
-                                bar_psel_next     = {h_dw0_inb.fmt, h_dw0_inb.tp} == RD_64 ? pcie_detach_bar_hit_i : '0;
+                                bar_psel_next     = {h_dw0_inb.fmt, h_dw0_inb.tp} == RD_64 ? BAR_COUNT'(pcie_detach_bar_hit_i) : '0;
                                 bar_paddr_next    = {32'h0, mr_4dw_123_inb.addr_lo[29:2], 4'h0};
                                 bar_pstrb_next    = h_dw0_inb.length == 4 ? 16'hFFFF << {mr_4dw_123_inb.addr_lo[1:0], 2'b0} :
                                                     h_dw0_inb.length == 3 ? 16'h0FFF << {mr_4dw_123_inb.addr_lo[1:0], 2'b0} :
@@ -450,7 +455,7 @@ module kdma_pcie_tlp_decoder #(
                 cpl_3dw_12_outb.req_id = req_id_saved;
                 cpl_3dw_12_outb.tag = tag_saved;
                 cpl_3dw_12_outb.rsvd = '0;
-                cpl_3dw_12_outb.addr_lo = addr_lo_saved;
+                cpl_3dw_12_outb.addr_lo = 7'(addr_lo_saved);
                 cpl_3dw_12_outb.cpl_id = {bus_number_i, device_number_i, function_number_i};
                 cpl_3dw_12_outb.cpl_sts = (state == UNSUPPORTED) ? STS_UR : STS_CA;
                 cpl_3dw_12_outb.bcm = '0;
@@ -459,6 +464,7 @@ module kdma_pcie_tlp_decoder #(
                 pcie_data_o = {32'h0, cpl_3dw_12_outb, h_dw0_outb};
                 pcie_valid_o = ~cpl_sent;
                 pcie_tkeep_o = 16'h0FFF;
+                pcie_tlast_o = '1;
 
                 if (cpl_sent == 0) begin
                     cpl_sent_next = pcie_valid_o && pcie_ready_i;
@@ -480,15 +486,26 @@ module kdma_pcie_tlp_decoder #(
                         cpl_data_next = cpl_data_next | (bar_pready_i[i] ? bar_prdata_i[i] : '0);
                     end
                 end
+
+                if (bar_penable_o && |(bar_pready_i & bar_psel_o)) begin
+                    bar_psel_next    = '0;
+                    bar_penable_next = '0;
+                end
             end
             BAR_WRITE   : begin
                 pcie_detach_ready_o = (bar_penable_o && |(bar_pready_i & bar_psel_o));
 
                 if (pcie_detach_valid_i) begin
-                    bar_psel_next    = bar_hit_saved;
+                    bar_psel_next    = BAR_COUNT'(bar_hit_saved);
                     bar_penable_next = |bar_psel;
                     bar_pwrite_next  = '1;
-                    bar_pwdata_next  = pcie_detach_data_i;
+                    casez (bar_pstrb) 
+                        'h???F:  bar_pwdata_next  = pcie_detach_data_i;
+                        'h??F0:  bar_pwdata_next  = pcie_detach_data_i << 32;
+                        'h?F00:  bar_pwdata_next  = pcie_detach_data_i << 64;
+                        'hF000:  bar_pwdata_next  = pcie_detach_data_i << 96;
+                        default: bar_pwdata_next  = pcie_detach_data_i;
+                    endcase
 
                     if (pcie_detach_ready_o) begin
                         bar_psel_next = '0;
@@ -512,15 +529,22 @@ module kdma_pcie_tlp_decoder #(
                 cpl_3dw_12_outb.req_id = req_id_saved;
                 cpl_3dw_12_outb.tag = tag_saved;
                 cpl_3dw_12_outb.rsvd = '0;
-                cpl_3dw_12_outb.addr_lo = addr_lo_saved;
+                cpl_3dw_12_outb.addr_lo = 7'(addr_lo_saved);
                 cpl_3dw_12_outb.cpl_id = {bus_number_i, device_number_i, function_number_i};
                 cpl_3dw_12_outb.cpl_sts = STS_SC;
                 cpl_3dw_12_outb.bcm = '0;
                 cpl_3dw_12_outb.byte_cnt = byte_cnt_saved;
                 
-                pcie_data_o = (cnt == 0) ? {cpl_data[31:0], cpl_3dw_12_outb, h_dw0_outb} : {32'h0, cpl_data[127:32]};
+                casez (bar_pstrb) 
+                    'h???F:  pcie_data_o = (cnt == 0) ? {cpl_data[31:0]  , cpl_3dw_12_outb, h_dw0_outb} : {{1{32'h0}}, cpl_data[127:32]};
+                    'h??F0:  pcie_data_o = (cnt == 0) ? {cpl_data[63:32] , cpl_3dw_12_outb, h_dw0_outb} : {{2{32'h0}}, cpl_data[127:63]};
+                    'h?F00:  pcie_data_o = (cnt == 0) ? {cpl_data[95:64] , cpl_3dw_12_outb, h_dw0_outb} : {{3{32'h0}}, cpl_data[127:96]};
+                    'hF000:  pcie_data_o = (cnt == 0) ? {cpl_data[127:96], cpl_3dw_12_outb, h_dw0_outb} : {{1{32'h0}}, cpl_data[127:32]};
+                    default: pcie_data_o = (cnt == 0) ? {cpl_data[31:0]  , cpl_3dw_12_outb, h_dw0_outb} : {{1{32'h0}}, cpl_data[127:32]};
+                endcase
                 pcie_valid_o = ~cpl_sent;
                 pcie_tkeep_o = (cnt == 0) ? 16'hFFFF : (16'h0FFF >> ((3 - (length_saved - 1)) << 2));
+                pcie_tlast_o = (length_saved == 1) ? '1 : (cnt == 1);
 
                 cnt_next = (pcie_valid_o && pcie_ready_i) ? 1 : cnt;
 

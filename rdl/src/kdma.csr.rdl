@@ -1,0 +1,61 @@
+`ifndef __KDMA__CSR__RDL__
+`define __KDMA__CSR__RDL__
+
+`include "kdma.struct.rdl"
+
+addrmap kdma_csr_am #(
+    bit DMA_CHANNEL_COUNT = 8,
+    bit DMA_TQ_DEPTH      = 8
+) {
+    desc = "KDMA controller control and status registers";
+
+    default regwidth = 128;
+
+    reg global_r {
+        desc = "Contains KDMA self-discovery fields, task FIFO status fields and DMA reset field";
+
+        field {
+            desc = "Reserved";
+            hw   = na;
+            sw   = r;
+        } RSVD[127:97] = 0x0;
+
+        field {
+            desc = "KDMA channel count";
+            hw   = r;
+            sw   = rw;
+
+            singlepulse;
+        } DMA_RESET [96:96] = 0x0;
+
+        field {
+            desc = "KDMA channel count";
+            hw   = w;
+            sw   = r;
+        } DMARD_TASK_FREE [95:64] = DMA_TQ_DEPTH;
+
+        field {
+            desc = "KDMA channel count";
+            hw   = w;
+            sw   = r;
+        } DMAWR_TASK_FREE [63:32] = DMA_TQ_DEPTH;
+
+        field {
+            desc = "KDMA channel count";
+            hw   = na;
+            sw   = r;
+        } DMA_CHANNEL_COUNT [31:16] = DMA_CHANNEL_COUNT;
+
+        field {
+            desc = "Pointer to struct 0";
+            hw   = w;
+            sw   = r;
+        } STRUCT_0_PTR [15:0];
+    };
+
+    global_r GLOBAL_REG;
+    kdma_struct_rf STRUCT_REGS[DMA_CHANNEL_COUNT] += 0x40;
+    
+};
+
+`endif
