@@ -1,5 +1,5 @@
 import cocotb
-from cocotb.triggers import RisingEdge, Timer, First, with_timeout
+from cocotb.triggers import RisingEdge, Timer, First, with_timeout, Combine
 from cocotbext.axi import AxiBus, AxiMaster
 
 from random import randint
@@ -41,6 +41,7 @@ class AxiWrapper:
 
 @cocotb.test
 async def test(dut):
+
     await RisingEdge(dut.rst_n)
     axi_master = [AxiMaster(AxiBus.from_prefix(AxiWrapper(dut, i), ""), dut.clk, dut.rst_n, reset_active_level=False) for i in range(dut.DMA_CHANNEL_COUNT.value)]
     await RisingEdge(dut.clk)
@@ -55,6 +56,8 @@ async def test(dut):
 
     assert result is not timeout, "The design has hung!"
 
+    print(f"AXI read testing")
+    print(f"Sequential started...")
     for i in range(dut.PIPELINE_CAPACITY.value.to_unsigned()):
         for j in range(dut.DMA_CHANNEL_COUNT.value):
             await with_timeout(axi_master[j].read(randint(0, (2**32-1) // 16) * 16, randint(0, 255), i), 1_000_000, 'ns')
@@ -62,3 +65,20 @@ async def test(dut):
     for i in range(dut.PIPELINE_CAPACITY.value.to_unsigned()):
         for j in range(dut.DMA_CHANNEL_COUNT.value):
             await with_timeout(axi_master[j].read(randint((2**32) // 16, (2**64-1) // 16) * 16, randint(0, 255), i), 1_000_000, 'ns')
+    print(f"Sequential finished!")
+
+    print(f"Random parallel started...")
+    for i in range(20):
+        print(f"Pass {i}")
+
+        processes = []
+        for i in range(dut.PIPELINE_CAPACITY.value.to_unsigned() * 2):
+            for j in range(dut.DMA_CHANNEL_COUNT.value):
+                processes.append(cocotb.start_soon(with_timeout(axi_master[j].read(randint(0, (2**32-1) // 16) * 16, randint(0, 255), randint(0, dut.PIPELINE_CAPACITY.value.to_unsigned()-1)), 1_000_000, 'ns')))
+
+        for i in range(dut.PIPELINE_CAPACITY.value.to_unsigned() * 2):
+            for j in range(dut.DMA_CHANNEL_COUNT.value):
+                processes.append(cocotb.start_soon(with_timeout(axi_master[j].read(randint((2**32) // 16, (2**64-1) // 16) * 16, randint(0, 255), randint(0, dut.PIPELINE_CAPACITY.value.to_unsigned()-1)), 1_000_000, 'ns')))
+
+        await Combine(*processes)
+    print(f"Random parallel finished!")

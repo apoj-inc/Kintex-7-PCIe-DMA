@@ -94,15 +94,13 @@ module kdma_rd_pipeline_ctrl #(
                     id_busy <= '0;
                 end
                 else begin
+                    if (id_fifo_snoop_valid_i[i] && id_fifo_snoop_ready_i[i]) begin
+                        if (id_fifo_snoop_last_i[i]) begin
+                            id_busy[exp_id] <= '0;
+                        end
+                    end
                     if (pcie_valid_o[i] && pcie_ready_i[i]) begin
                         id_busy[arid_i[i]] <= '1;
-                    end
-                    else begin
-                        if (id_fifo_snoop_valid_i[i] && id_fifo_snoop_ready_i[i]) begin
-                            if (id_fifo_snoop_last_i[i]) begin
-                                id_busy[exp_id] <= '0;
-                            end
-                        end
                     end
                 end
             end
