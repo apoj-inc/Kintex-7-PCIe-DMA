@@ -61,7 +61,7 @@ module kdma_pcie_axi_bridge #(
     input  logic [DMA_CHANNEL_COUNT-1:0] wvalid_i                             ,
     output logic [DMA_CHANNEL_COUNT-1:0] wready_o                             ,
     input  logic [127:0]                 wdata_i           [DMA_CHANNEL_COUNT],
-    input  logic [DMA_CHANNEL_COUNT-1:0] wlast_i           [DMA_CHANNEL_COUNT],
+    input  logic [DMA_CHANNEL_COUNT-1:0] wlast_i                              ,
     input  logic [15:0]                  wstrb_i           [DMA_CHANNEL_COUNT],
 
     output logic [DMA_CHANNEL_COUNT-1:0] bvalid_o                             ,
@@ -74,6 +74,10 @@ module kdma_pcie_axi_bridge #(
     input  logic [2:0]                   function_number_i                    
 
 );
+
+    assign awready_o = '0; // TODO
+    assign wready_o  = '0; // TODO
+    assign bvalid_o  = '0; // TODO
 
     logic [TOTAL_ID_COUNT-1:0] dmard_valid_wr;
     logic [TOTAL_ID_COUNT-1:0] dmard_ready_wr;
@@ -235,9 +239,9 @@ module kdma_pcie_axi_bridge #(
                     .ready_o (dmard_ready_wr[i*PIPELINE_CAPACITY + j]),
                     .free_o  (),
 
-                    .data_o  ({dmard_data_rd[i*PIPELINE_CAPACITY + j], dmard_last_rd[i*PIPELINE_CAPACITY + j]}),
-                    .valid_o (dmard_valid_rd[i*PIPELINE_CAPACITY + j]),
-                    .ready_i (dmard_ready_rd[i*PIPELINE_CAPACITY + j]),
+                    .data_o  ({dmard_data_rd[j], dmard_last_rd[j]}),
+                    .valid_o (dmard_valid_rd[j]),
+                    .ready_i (dmard_ready_rd[j]),
                     .count_o ()
                 );
             end

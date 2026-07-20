@@ -123,7 +123,7 @@ module kdma_rd_pipeline_ctrl #(
             always_comb begin
                 {hdw0.rsvd_2, hdw0.rsvd_1, hdw0.qos, hdw0.rsvd_0, hdw0.digest, hdw0.err, hdw0.attr, hdw0.addr_tran} = '0;
                 {hdw0.fmt, hdw0.tp} = araddr_i[i][63:32] == '0 ? RD_32 : RD_64;
-                hdw0.length = arlen_i[i] >> 2;
+                hdw0.length = (arlen_i[i] + 1) << 2;
 
                 mr3.addr   = {araddr_i[i][31:4], 2'b0};
                 mr3.rsvd   = '0;
