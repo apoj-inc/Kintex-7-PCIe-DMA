@@ -68,16 +68,31 @@ module kdma_pcie_axi_bridge #(
     input  logic [DMA_CHANNEL_COUNT-1:0] bready_i                             ,
     output logic [AXI_ID_WIDTH-1:0]      bid_o             [DMA_CHANNEL_COUNT],
     output logic [2:0]                   bresp_o           [DMA_CHANNEL_COUNT],
+    
+    input  logic                         msix_awvalid_i                       ,
+    output logic                         msix_awready_o                       ,
+    input  logic [63:0]                  msix_awaddr_i                        ,
+    input  logic [7:0]                   msix_awlen_i                         ,
+    input  logic [AXI_ID_WIDTH-1:0]      msix_awid_i                          ,
+    input  logic [1:0]                   msix_awburst_i                       ,
+    input  logic [2:0]                   msix_awsize_i                        ,
+
+    input  logic                         msix_wvalid_i                        ,
+    output logic                         msix_wready_o                        ,
+    input  logic [127:0]                 msix_wdata_i                         ,
+    input  logic                         msix_wlast_i                         ,
+    input  logic [15:0]                  msix_wstrb_i                         ,
+
+    output logic                         msix_bvalid_o                        ,
+    input  logic                         msix_bready_i                        ,
+    output logic [AXI_ID_WIDTH-1:0]      msix_bid_o                           ,
+    output logic [2:0]                   msix_bresp_o                         ,
 
     input  logic [7:0]                   bus_number_i                         ,
     input  logic [4:0]                   device_number_i                      ,
     input  logic [2:0]                   function_number_i                    
 
 );
-
-    assign awready_o = '0; // TODO
-    assign wready_o  = '0; // TODO
-    assign bvalid_o  = '0; // TODO
 
     logic [TOTAL_ID_COUNT-1:0] dmard_valid_wr;
     logic [TOTAL_ID_COUNT-1:0] dmard_ready_wr;
@@ -93,18 +108,17 @@ module kdma_pcie_axi_bridge #(
     logic [15:0]  bar_resp_pcie_tkeep;
     logic         bar_resp_pcie_tlast;
 
-    logic [DMA_CHANNEL_COUNT-1:0]  dmard_pcie_valid                       ;
-    logic [DMA_CHANNEL_COUNT-1:0]  dmard_pcie_ready                       ;
-    logic [127:0]                  dmard_pcie_data     [DMA_CHANNEL_COUNT];
-    logic [15:0]                   dmard_pcie_tkeep    [DMA_CHANNEL_COUNT];
-    logic [DMA_CHANNEL_COUNT-1:0]  dmard_pcie_tlast                       ;
+    logic [DMA_CHANNEL_COUNT-1:0] dmard_pcie_valid                    ;
+    logic [DMA_CHANNEL_COUNT-1:0] dmard_pcie_ready                    ;
+    logic [127:0]                 dmard_pcie_data  [DMA_CHANNEL_COUNT];
+    logic [15:0]                  dmard_pcie_tkeep [DMA_CHANNEL_COUNT];
+    logic [DMA_CHANNEL_COUNT-1:0] dmard_pcie_tlast                    ;
 
-    logic [DMA_CHANNEL_COUNT-1:0]  dmawr_pcie_valid                       ;
-    logic [DMA_CHANNEL_COUNT-1:0]  dmawr_pcie_ready                       ;
-    logic [127:0]                  dmawr_pcie_data     [DMA_CHANNEL_COUNT];
-    logic [15:0]                   dmawr_pcie_tkeep    [DMA_CHANNEL_COUNT];
-    logic [DMA_CHANNEL_COUNT-1:0]  dmawr_pcie_tlast                       ;
-    assign dmawr_pcie_valid = '0; // TODO
+    logic [DMA_CHANNEL_COUNT-1:0] dmawr_pcie_valid                    ;
+    logic [DMA_CHANNEL_COUNT-1:0] dmawr_pcie_ready                    ;
+    logic [127:0]                 dmawr_pcie_data  [DMA_CHANNEL_COUNT];
+    logic [15:0]                  dmawr_pcie_tkeep [DMA_CHANNEL_COUNT];
+    logic [DMA_CHANNEL_COUNT-1:0] dmawr_pcie_tlast                    ;
 
     logic [DMA_CHANNEL_COUNT-1:0] rvalid_dma                    ;
     logic [DMA_CHANNEL_COUNT-1:0] rready_dma                    ;
@@ -268,10 +282,10 @@ module kdma_pcie_axi_bridge #(
         end
     endgenerate
 
-    kdma_rd_pipeline_ctrl #(
+    kdma_dmard_pipeline_ctrl #(
         .DMA_CHANNEL_COUNT (DMA_CHANNEL_COUNT),
         .PIPELINE_CAPACITY (PIPELINE_CAPACITY)
-    ) u_kdma_rd_pipeline_ctrl (
+    ) u_kdma_dmard_pipeline_ctrl (
         .clk                   (clk              ),
         .rst_n                 (rst_n            ),
 
@@ -304,6 +318,43 @@ module kdma_pcie_axi_bridge #(
         .bus_number_i          (bus_number_i     ),
         .device_number_i       (device_number_i  ),
         .function_number_i     (function_number_i)
+    );
+
+    kdma_dmawr_sink #(
+        .DMA_CHANNEL_COUNT (DMA_CHANNEL_COUNT),
+        .PIPELINE_CAPACITY (PIPELINE_CAPACITY)
+    ) u_kdma_dmawr_sink (
+        .clk               (clk               ),
+        .rst_n             (rst_n             ),
+
+        .awvalid_i         (awvalid_i         ),
+        .awready_o         (awready_o         ),
+        .awaddr_i          (awaddr_i          ),
+        .awlen_i           (awlen_i           ),
+        .awid_i            (awid_i            ),
+        .awburst_i         (awburst_i         ),
+        .awsize_i          (awsize_i          ),
+
+        .wvalid_i          (wvalid_i          ),
+        .wready_o          (wready_o          ),
+        .wdata_i           (wdata_i           ),
+        .wlast_i           (wlast_i           ),
+        .wstrb_i           (wstrb_i           ),
+
+        .bvalid_o          (bvalid_o          ),
+        .bready_i          (bready_i          ),
+        .bid_o             (bid_o             ),
+        .bresp_o           (bresp_o           ),
+
+        .pcie_valid_o      (dmawr_pcie_valid  ),
+        .pcie_ready_i      (dmawr_pcie_ready  ),
+        .pcie_data_o       (dmawr_pcie_data   ),
+        .pcie_tkeep_o      (dmawr_pcie_tkeep  ),
+        .pcie_tlast_o      (dmawr_pcie_tlast  ),
+        
+        .bus_number_i      (bus_number_i      ),
+        .device_number_i   (device_number_i   ),
+        .function_number_i (function_number_i )
     );
 
     kdma_axis_interconnect #(

@@ -11,7 +11,8 @@ rtl/src/dma/pcie_axi_bridge/kdma_pcie_tlp_decoder.sv
 rtl/src/dma/pcie_axi_bridge/kdma_pcie_tlp_rearrange_decode.sv
 rtl/src/dma/pcie_axi_bridge/kdma_axi_err_responder.sv
 rtl/src/dma/pcie_axi_bridge/kdma_axis_interconnect.sv
-rtl/src/dma/pcie_axi_bridge/kdma_rd_pipeline_ctrl.sv
+rtl/src/dma/pcie_axi_bridge/kdma_dmard_pipeline_ctrl.sv
+rtl/src/dma/pcie_axi_bridge/kdma_dmawr_sink.sv
 rtl/src/dma/pcie_axi_bridge/kdma_pcie_axi_bridge.sv
 rtl/src/lib/hs_wrmhl_arbiter.sv
 rtl/src/lib/stream_arbiter.sv
