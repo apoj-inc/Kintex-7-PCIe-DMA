@@ -47,7 +47,7 @@ module kdma_pcie_axi_bridge #(
     input  logic [DMA_CHANNEL_COUNT-1:0] rready_i                             ,
     output logic [AXI_DATA_WIDTH-1:0]    rdata_o           [DMA_CHANNEL_COUNT],
     output logic [DMA_CHANNEL_COUNT-1:0] rlast_o                              ,
-    output logic [2:0]                   rresp_o           [DMA_CHANNEL_COUNT],
+    output logic [1:0]                   rresp_o           [DMA_CHANNEL_COUNT],
     output logic [AXI_ID_WIDTH-1:0]      rid_o             [DMA_CHANNEL_COUNT],
 
     input  logic [DMA_CHANNEL_COUNT-1:0] awvalid_i                            ,
@@ -67,7 +67,7 @@ module kdma_pcie_axi_bridge #(
     output logic [DMA_CHANNEL_COUNT-1:0] bvalid_o                             ,
     input  logic [DMA_CHANNEL_COUNT-1:0] bready_i                             ,
     output logic [AXI_ID_WIDTH-1:0]      bid_o             [DMA_CHANNEL_COUNT],
-    output logic [2:0]                   bresp_o           [DMA_CHANNEL_COUNT],
+    output logic [1:0]                   bresp_o           [DMA_CHANNEL_COUNT],
     
     input  logic                         msix_awvalid_i                       ,
     output logic                         msix_awready_o                       ,
@@ -86,7 +86,7 @@ module kdma_pcie_axi_bridge #(
     output logic                         msix_bvalid_o                        ,
     input  logic                         msix_bready_i                        ,
     output logic [AXI_ID_WIDTH-1:0]      msix_bid_o                           ,
-    output logic [2:0]                   msix_bresp_o                         ,
+    output logic [1:0]                   msix_bresp_o                         ,
 
     input  logic [7:0]                   bus_number_i                         ,
     input  logic [4:0]                   device_number_i                      ,
@@ -120,18 +120,24 @@ module kdma_pcie_axi_bridge #(
     logic [15:0]                  dmawr_pcie_tkeep [DMA_CHANNEL_COUNT];
     logic [DMA_CHANNEL_COUNT-1:0] dmawr_pcie_tlast                    ;
 
+    logic         msix_pcie_valid;
+    logic         msix_pcie_ready;
+    logic [127:0] msix_pcie_data ;
+    logic [15:0]  msix_pcie_tkeep;
+    logic         msix_pcie_tlast;
+
     logic [DMA_CHANNEL_COUNT-1:0] rvalid_dma                    ;
     logic [DMA_CHANNEL_COUNT-1:0] rready_dma                    ;
     logic [127:0]                 rdata_dma  [DMA_CHANNEL_COUNT];
     logic [DMA_CHANNEL_COUNT-1:0] rlast_dma                     ;
-    logic [2:0]                   rresp_dma  [DMA_CHANNEL_COUNT];
+    logic [1:0]                   rresp_dma  [DMA_CHANNEL_COUNT];
     logic [AXI_ID_WIDTH-1:0]      rid_dma    [DMA_CHANNEL_COUNT];
 
     logic [DMA_CHANNEL_COUNT-1:0] rvalid_err                    ;
     logic [DMA_CHANNEL_COUNT-1:0] rready_err                    ;
     logic [127:0]                 rdata_err  [DMA_CHANNEL_COUNT];
     logic [DMA_CHANNEL_COUNT-1:0] rlast_err                     ;
-    logic [2:0]                   rresp_err  [DMA_CHANNEL_COUNT];
+    logic [1:0]                   rresp_err  [DMA_CHANNEL_COUNT];
     logic [AXI_ID_WIDTH-1:0]      rid_err    [DMA_CHANNEL_COUNT];
 
     logic [DMA_CHANNEL_COUNT-1:0] err_valid                    ;
@@ -145,7 +151,7 @@ module kdma_pcie_axi_bridge #(
         for (i = 0; i < DMA_CHANNEL_COUNT; i++) begin : axi_r_mux
             logic [1:0]                    rvalid_wr    ;
             logic [1:0]                    rready_wr    ;
-            logic [128+3+AXI_ID_WIDTH-1:0] rdata_wr  [2];
+            logic [128+2+AXI_ID_WIDTH-1:0] rdata_wr  [2];
             logic [1:0]                    rlast_wr     ;
 
             assign rvalid_wr[0]  = rvalid_dma[i];
@@ -159,7 +165,7 @@ module kdma_pcie_axi_bridge #(
             assign rdata_wr [1]  = {rdata_err[i], rresp_err[i], rid_err[i]};
 
             hs_wrmhl_arbiter #(
-                .DATA_WIDTH (128+3+AXI_ID_WIDTH),
+                .DATA_WIDTH (128+2+AXI_ID_WIDTH),
                 .INPUT_NUM  (2                 )
             ) u_hs_wrmhl_arbiter (
                 .clk     (clk  ),
@@ -357,6 +363,42 @@ module kdma_pcie_axi_bridge #(
         .function_number_i (function_number_i )
     );
 
+    kdma_msix_bridge #(
+        .PIPELINE_CAPACITY (PIPELINE_CAPACITY)
+    ) u_kdma_msix_bridge (
+        .clk               (clk              ),
+        .rst_n             (rst_n            ),
+
+        .msix_awvalid_i    (msix_awvalid_i   ),
+        .msix_awready_o    (msix_awready_o   ),
+        .msix_awaddr_i     (msix_awaddr_i    ),
+        .msix_awlen_i      (msix_awlen_i     ),
+        .msix_awid_i       (msix_awid_i      ),
+        .msix_awburst_i    (msix_awburst_i   ),
+        .msix_awsize_i     (msix_awsize_i    ),
+
+        .msix_wvalid_i     (msix_wvalid_i    ),
+        .msix_wready_o     (msix_wready_o    ),
+        .msix_wdata_i      (msix_wdata_i     ),
+        .msix_wlast_i      (msix_wlast_i     ),
+        .msix_wstrb_i      (msix_wstrb_i     ),
+
+        .msix_bvalid_o     (msix_bvalid_o    ),
+        .msix_bready_i     (msix_bready_i    ),
+        .msix_bid_o        (msix_bid_o       ),
+        .msix_bresp_o      (msix_bresp_o     ),
+
+        .pcie_valid_o      (msix_pcie_valid  ),
+        .pcie_ready_i      (msix_pcie_ready  ),
+        .pcie_data_o       (msix_pcie_data   ),
+        .pcie_tkeep_o      (msix_pcie_tkeep  ),
+        .pcie_tlast_o      (msix_pcie_tlast  ),
+
+        .bus_number_i      (bus_number_i     ),
+        .device_number_i   (device_number_i  ),
+        .function_number_i (function_number_i)
+    );
+
     kdma_axis_interconnect #(
         .DMA_CHANNEL_COUNT (DMA_CHANNEL_COUNT)
     ) u_kdma_axis_interconnect (
@@ -380,6 +422,12 @@ module kdma_pcie_axi_bridge #(
         .dmawr_pcie_data_i     (dmawr_pcie_data       ),
         .dmawr_pcie_tkeep_i    (dmawr_pcie_tkeep      ),
         .dmawr_pcie_tlast_i    (dmawr_pcie_tlast      ),
+
+        .msix_pcie_valid_i     (msix_pcie_valid       ),
+        .msix_pcie_ready_o     (msix_pcie_ready       ),
+        .msix_pcie_data_i      (msix_pcie_data        ),
+        .msix_pcie_tkeep_i     (msix_pcie_tkeep       ),
+        .msix_pcie_tlast_i     (msix_pcie_tlast       ),
 
         .pcie_valid_o          (pcie_valid_o          ),
         .pcie_ready_i          (pcie_ready_i          ),

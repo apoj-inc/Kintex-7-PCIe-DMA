@@ -14,13 +14,13 @@ module kdma_axi_err_responder #(
     input  logic                         rready_i   ,
     output logic [AXI_DATA_WIDTH-1:0]    rdata_o    ,
     output logic                         rlast_o    ,
-    output logic [2:0]                   rresp_o    ,
+    output logic [1:0]                   rresp_o    ,
     output logic [AXI_ID_WIDTH-1:0]      rid_o      
 );
 
     logic [7:0] count;
 
-    assign rresp_o = 3'b010; // slverr
+    assign rresp_o = 2'b10; // slverr
     assign rdata_o = '0;
     assign rlast_o = (count == 0);
 

@@ -65,7 +65,7 @@ logic                         rvalid            [DMA_CHANNEL_COUNT];
 logic                         rready            [DMA_CHANNEL_COUNT];
 logic [AXI_DATA_WIDTH-1:0]    rdata             [DMA_CHANNEL_COUNT];
 logic                         rlast             [DMA_CHANNEL_COUNT];
-logic [2:0]                   rresp             [DMA_CHANNEL_COUNT];
+logic [1:0]                   rresp             [DMA_CHANNEL_COUNT];
 logic [AXI_ID_WIDTH-1:0]      rid               [DMA_CHANNEL_COUNT];
 
 logic                         awvalid           [DMA_CHANNEL_COUNT];
@@ -85,11 +85,49 @@ logic [15:0]                  wstrb             [DMA_CHANNEL_COUNT];
 logic                         bvalid            [DMA_CHANNEL_COUNT];
 logic                         bready            [DMA_CHANNEL_COUNT];
 logic [AXI_ID_WIDTH-1:0]      bid               [DMA_CHANNEL_COUNT];
-logic [2:0]                   bresp             [DMA_CHANNEL_COUNT];
+logic [1:0]                   bresp             [DMA_CHANNEL_COUNT];
 
-logic [7:0]                   bus_number_i                         ;
-logic [4:0]                   device_number_i                      ;
-logic [2:0]                   function_number_i                    ;
+
+logic                      msix_arvalid ;
+logic                      msix_arready ;
+logic [AXI_ADDR_WIDTH-1:0] msix_araddr  ;
+logic [7:0]                msix_arlen   ;
+logic [AXI_ID_WIDTH-1:0]   msix_arid    ;
+logic [1:0]                msix_arburst ;
+logic [2:0]                msix_arsize  ;
+
+logic                      msix_rvalid  ;
+logic                      msix_rready  ;
+logic [AXI_DATA_WIDTH-1:0] msix_rdata   ;
+logic                      msix_rlast   ;
+logic [1:0]                msix_rresp   ;
+logic [AXI_ID_WIDTH-1:0]   msix_rid     ;
+
+logic                      msix_awvalid ;
+logic                      msix_awready ;
+logic [63:0]               msix_awaddr  ;
+logic [7:0]                msix_awlen   ;
+logic [AXI_ID_WIDTH-1:0]   msix_awid    ;
+logic [1:0]                msix_awburst ;
+logic [2:0]                msix_awsize  ;
+
+logic                      msix_wvalid  ;
+logic                      msix_wready  ;
+logic [127:0]              msix_wdata   ;
+logic                      msix_wlast   ;
+logic [15:0]               msix_wstrb   ;
+
+logic                      msix_bvalid  ;
+logic                      msix_bready  ;
+logic [AXI_ID_WIDTH-1:0]   msix_bid     ;
+logic [1:0]                msix_bresp   ;
+
+assign {msix_arready, msix_rvalid} = '0;
+
+
+logic [7:0] bus_number_i     ;
+logic [4:0] device_number_i  ;
+logic [2:0] function_number_i;
 
 
 logic [DMA_CHANNEL_COUNT-1:0] arvalid_pkd;
@@ -207,6 +245,25 @@ kdma_pcie_axi_bridge #(
     .bready_i          (bready_pkd       ),
     .bid_o             (bid              ),
     .bresp_o           (bresp            ),
+
+    .msix_awvalid_i    (msix_awvalid     ),
+    .msix_awready_o    (msix_awready     ),
+    .msix_awaddr_i     (msix_awaddr      ),
+    .msix_awlen_i      (msix_awlen       ),
+    .msix_awid_i       (msix_awid        ),
+    .msix_awburst_i    (msix_awburst     ),
+    .msix_awsize_i     (msix_awsize      ),
+
+    .msix_wvalid_i     (msix_wvalid      ),
+    .msix_wready_o     (msix_wready      ),
+    .msix_wdata_i      (msix_wdata       ),
+    .msix_wlast_i      (msix_wlast       ),
+    .msix_wstrb_i      (msix_wstrb       ),
+
+    .msix_bvalid_o     (msix_bvalid      ),
+    .msix_bready_i     (msix_bready      ),
+    .msix_bid_o        (msix_bid         ),
+    .msix_bresp_o      (msix_bresp       ),
 
     .bus_number_i      (bus_number_i     ),
     .device_number_i   (device_number_i  ),
@@ -354,6 +411,88 @@ assign cpl3_in = pcie_data_i[95:32];
 
 assign mr3d.req_id = 'hBEEF;
 assign mr4d.req_id = 'hBEEF;
+
+always @(posedge clk) begin
+    if (reg_acc_test_done) begin
+        int bar, i, j, activate;
+        bar = 'b11 << $urandom_range(0, 1);
+        i = $urandom_range(1, 4);
+        j = $urandom_range(0, 4 - i);
+        activate = $urandom_range(0, 100);
+
+        if (activate == 100) begin
+            pcie_data_lock.get(1);
+            $display("Generating reg access test...", $time);
+            case ($urandom_range(0, 3)) 
+                0: begin
+                    {hdw0.rsvd_2, hdw0.rsvd_1, hdw0.rsvd_0, hdw0.qos, hdw0.digest, hdw0.err, hdw0.attr, hdw0.addr_tran} = '0;
+                    {hdw0.fmt, hdw0.tp} = WR_32;
+                    hdw0.length = i;
+                    
+                    mr3d.addr = (bar == 'b0011) ? (j*4) >> 2 : ('h40 + j*4) >> 2;
+                    mr3d.rsvd = '0;
+                    mr3d.ldw_be = hdw0.length == 1 ? '0 : '1;
+                    mr3d.fdw_be = '1;
+                    mr3d.tag = $urandom();
+
+                    $display("Transaction WR_32: addr %x, id %x, tag %x", {mr3d.addr, 2'h0}, mr3d.req_id, mr3d.tag);
+
+                    if (i == 1) begin
+                        pcie_data_queue.push_back({$urandom(), mr3d, hdw0, 5'b10000, 5'b11111, 8'(bar)});
+                    end
+                    else begin
+                        pcie_data_queue.push_back({$urandom(), mr3d, hdw0, 5'b10000, 5'b00000, 8'(bar)});
+                        pcie_data_queue.push_back({$urandom(), $urandom(), $urandom(), $urandom(), 5'b00000, 1'b1, 4'((i-1)*4 - 1), 8'(bar)});
+                    end
+                end
+                1: begin
+                    {hdw0.rsvd_2, hdw0.rsvd_1, hdw0.rsvd_0, hdw0.qos, hdw0.digest, hdw0.err, hdw0.attr, hdw0.addr_tran} = '0;
+                    {hdw0.fmt, hdw0.tp} = RD_32;
+                    hdw0.length = i;
+                    
+                    mr3d.addr = (bar == 'b0011) ? (j*4) >> 2 : ('h40 + j*4) >> 2;
+                    {mr3d.rsvd, mr3d.ldw_be} = '0;
+                    mr3d.fdw_be = '1;
+                    mr3d.tag = $urandom();
+
+                    $display("Transaction RD_32: addr %x, id %x, tag %x", {mr3d.addr, 2'h0}, mr3d.req_id, mr3d.tag);
+                    pcie_data_queue.push_back({32'b0, mr3d, hdw0, 5'b10000, 5'b11011, 8'(bar)});
+                end
+                2: begin
+                    {hdw0.rsvd_2, hdw0.rsvd_1, hdw0.rsvd_0, hdw0.qos, hdw0.digest, hdw0.err, hdw0.attr, hdw0.addr_tran} = '0;
+                    {hdw0.fmt, hdw0.tp} = WR_64;
+                    hdw0.length = i;
+
+                    mr4d.addr_lo = (bar == 'b0011) ? (j*4) >> 2 : ('h40 + j*4) >> 2;
+                    mr4d.addr_hi = '0;
+                    mr4d.rsvd = '0;
+                    mr4d.ldw_be = hdw0.length == 1 ? '0 : '1;
+                    mr4d.fdw_be = '1;
+                    mr4d.tag = $urandom();
+
+                    $display("Transaction WR_64: addr %x, id %x, tag %x", {mr4d.addr_hi, mr4d.addr_lo}, mr4d.req_id, mr4d.tag);
+                    pcie_data_queue.push_back({mr4d, hdw0, 5'b10000, 5'b00000, 8'(bar)});
+                    pcie_data_queue.push_back({32'($urandom()), 32'($urandom()),32'($urandom()), 32'($urandom()),  5'b00000, 1'b1, 4'((hdw0.length)*4-1), 8'(bar)});
+                end
+                default: begin
+                    {hdw0.rsvd_2, hdw0.rsvd_1, hdw0.rsvd_0, hdw0.qos, hdw0.digest, hdw0.err, hdw0.attr, hdw0.addr_tran} = '0;
+                    {hdw0.fmt, hdw0.tp} = RD_64;
+                    hdw0.length = i;
+                    
+                    mr4d.addr_lo = (bar == 'b0011) ? (j*4) >> 2 : ('h40 + j*4) >> 2;
+                    mr4d.addr_hi = '0;
+                    {mr4d.rsvd, mr4d.ldw_be} = '0;
+                    mr4d.fdw_be = '1;
+                    mr4d.tag = $urandom();
+
+                    $display("Transaction RD_64: addr %x, id %x, tag %x", {mr4d.addr_hi, mr4d.addr_lo}, mr4d.req_id, mr4d.tag);
+                    pcie_data_queue.push_back({mr4d, hdw0, 5'b10000, 5'b11111, 8'(bar)});
+                end
+            endcase
+            pcie_data_lock.put(1);
+        end
+    end
+end
 
 always @(posedge clk) begin
     if (pcie_valid_o && pcie_ready_i) begin

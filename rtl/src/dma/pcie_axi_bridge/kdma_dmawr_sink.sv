@@ -26,7 +26,7 @@ module kdma_dmawr_sink #(
     output logic [DMA_CHANNEL_COUNT-1:0] bvalid_o                             ,
     input  logic [DMA_CHANNEL_COUNT-1:0] bready_i                             ,
     output logic [AXI_ID_WIDTH-1:0]      bid_o             [DMA_CHANNEL_COUNT],
-    output logic [2:0]                   bresp_o           [DMA_CHANNEL_COUNT],
+    output logic [1:0]                   bresp_o           [DMA_CHANNEL_COUNT],
 
     output logic [DMA_CHANNEL_COUNT-1:0] pcie_valid_o                         ,
     input  logic [DMA_CHANNEL_COUNT-1:0] pcie_ready_i                         ,
@@ -54,7 +54,7 @@ module kdma_dmawr_sink #(
 
             logic                    bvalid, bvalid_next;
             logic [AXI_ID_WIDTH-1:0] bid   , bid_next   ;
-            logic [2:0]              bresp , bresp_next ;
+            logic [1:0]              bresp , bresp_next ;
 
             logic [95:0] buf_for_32, buf_for_32_next;
 
@@ -116,7 +116,7 @@ module kdma_dmawr_sink #(
                         end
                     end
                     DMAWR_32, DMAWR_64, ERR_RESP: begin
-                        if (bvalid_o && bready_i) begin
+                        if (bvalid_o[i] && bready_i[i]) begin
                             state_next = IDLE;
                         end
                         else begin
@@ -157,7 +157,7 @@ module kdma_dmawr_sink #(
                             bid_next   = awid_i[i];
 
                             if (awsize_i[i] == 3'b100 && awburst_i[i] == 2'b01) begin
-                                bresp_next = 3'b000;
+                                bresp_next = 2'b00;
 
                                 {hdw0.rsvd_2, hdw0.rsvd_1, hdw0.qos, hdw0.rsvd_0, hdw0.digest, hdw0.err, hdw0.attr, hdw0.addr_tran} = '0;
                                 hdw0.length = awlen_i[i] << 2;
@@ -191,7 +191,7 @@ module kdma_dmawr_sink #(
                                 end
                             end
                             else begin
-                                bresp_next = 3'b010; // slverr
+                                bresp_next = 2'b10; // slverr
                                 awready_o[i] = '1;
                             end
                         end
@@ -212,12 +212,12 @@ module kdma_dmawr_sink #(
                         else begin
                             wready_o[i] = '0;
 
-                            pcie_valid_o[i] = bvalid_o ? '1 : '0;
+                            pcie_valid_o[i] = bvalid_o ? '0 : '1;
                             pcie_data_o[i]  = {'0, buf_for_32};
                             pcie_tkeep_o[i] = 16'h0FFF;
                             pcie_tlast_o[i] = '1;
 
-                            wlast_was_next = pcie_valid_o[i] && pcie_ready_i[i] ? '0 : wlast_was;
+                            wlast_was_next = bvalid_o[i] && bready_i[i] ? '0 : wlast_was;
 
                             bvalid_next = bvalid_o[i] && bready_i[i] ? '0 :
                                             pcie_valid_o[i] && pcie_ready_i[i] && pcie_tlast_o[i] ? '1 : bvalid;

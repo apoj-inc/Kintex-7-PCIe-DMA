@@ -2,7 +2,7 @@ import cocotb
 from cocotb.triggers import RisingEdge, Timer, First, with_timeout, Combine
 from cocotbext.axi import AxiBus, AxiMaster
 
-from random import randint
+from random import randint, randbytes
 
 class AxiWrapper:
 
@@ -44,6 +44,7 @@ async def test(dut):
 
     await RisingEdge(dut.rst_n)
     axi_master = [AxiMaster(AxiBus.from_prefix(AxiWrapper(dut, i), ""), dut.clk, dut.rst_n, reset_active_level=False) for i in range(dut.DMA_CHANNEL_COUNT.value)]
+    axi_master_msix = AxiMaster(AxiBus.from_prefix(dut, "msix"), dut.clk, dut.rst_n, reset_active_level=False)
     await RisingEdge(dut.clk)
 
     task_awaiter = RisingEdge(dut.reg_acc_test_done)
@@ -55,30 +56,60 @@ async def test(dut):
     )
 
     assert result is not timeout, "The design has hung!"
+    
+    
+    print(f"MSIX testing")
+    print(f"MSIX started...")
+    for i in range(50):
+        await with_timeout(axi_master_msix.write(randint(0, (2**32-1) // 4) * 4, randbytes(4)), 1_000_000, 'ns')
+    for i in range(50):
+        await with_timeout(axi_master_msix.write(randint(2**32 // 4, (2**64-1) // 4) * 4, randbytes(4)), 1_000_000, 'ns')
+    print(f"MSIX finished!")
+
 
     print(f"AXI read testing")
-    print(f"Sequential started...")
+    print(f"Sequential read started...")
     for i in range(dut.PIPELINE_CAPACITY.value.to_unsigned()):
         for j in range(dut.DMA_CHANNEL_COUNT.value):
-            await with_timeout(axi_master[j].read(randint(0, (2**32-1) // 16) * 16, randint(0, 255), i), 1_000_000, 'ns')
+            await with_timeout(axi_master[j].read(randint(0, (2**32-1) // 16) * 16, randint(1, 256) * 16, i), 1_000_000, 'ns')
 
     for i in range(dut.PIPELINE_CAPACITY.value.to_unsigned()):
         for j in range(dut.DMA_CHANNEL_COUNT.value):
-            await with_timeout(axi_master[j].read(randint((2**32) // 16, (2**64-1) // 16) * 16, randint(0, 255), i), 1_000_000, 'ns')
-    print(f"Sequential finished!")
+            await with_timeout(axi_master[j].read(randint((2**32) // 16, (2**64-1) // 16) * 16, randint(1, 256) * 16, i), 1_000_000, 'ns')
+    print(f"Sequential read finished!")
 
-    print(f"Random parallel started...")
-    for i in range(20):
+
+    print(f"AXI write testing")
+    print(f"Sequential write started...")
+    for i in range(dut.PIPELINE_CAPACITY.value.to_unsigned()):
+        for j in range(dut.DMA_CHANNEL_COUNT.value):
+            await with_timeout(axi_master[j].write(randint(0, (2**32-1) // 16) * 16, randbytes(randint(1, 256) * 16), i), 1_000_000, 'ns')
+
+    for i in range(dut.PIPELINE_CAPACITY.value.to_unsigned()):
+        for j in range(dut.DMA_CHANNEL_COUNT.value):
+            await with_timeout(axi_master[j].write(randint((2**32) // 16, (2**64-1) // 16) * 16, randbytes(randint(1, 256) * 16), i), 1_000_000, 'ns')
+    print(f"Sequential write finished!")
+
+
+    print(f"AXI read write testing")
+    print(f"Random read write parallel started...")
+    for i in range(5):
         print(f"Pass {i}")
 
         processes = []
+        for i in range(50):
+            processes.append(cocotb.start_soon(with_timeout(axi_master_msix.write(randint(0, (2**32-1) // 4) * 4, randbytes(4)), 1_000_000, 'ns')))
+        for i in range(50):
+            processes.append(cocotb.start_soon(with_timeout(axi_master_msix.write(randint(2**32 // 4, (2**64-1) // 4) * 4, randbytes(4)), 1_000_000, 'ns')))
         for i in range(dut.PIPELINE_CAPACITY.value.to_unsigned() * 2):
             for j in range(dut.DMA_CHANNEL_COUNT.value):
-                processes.append(cocotb.start_soon(with_timeout(axi_master[j].read(randint(0, (2**32-1) // 16) * 16, randint(0, 255), randint(0, dut.PIPELINE_CAPACITY.value.to_unsigned()-1)), 1_000_000, 'ns')))
+                processes.append(cocotb.start_soon(with_timeout(axi_master[j].write(randint(0, (2**32-1) // 16) * 16, randbytes(randint(1, 256) * 16), randint(0, dut.PIPELINE_CAPACITY.value.to_unsigned()-1)), 1_000_000, 'ns')))
+                processes.append(cocotb.start_soon(with_timeout(axi_master[j].read(randint(0, (2**32-1) // 16) * 16, randint(1, 256) * 16, randint(0, dut.PIPELINE_CAPACITY.value.to_unsigned()-1)), 1_000_000, 'ns')))
 
         for i in range(dut.PIPELINE_CAPACITY.value.to_unsigned() * 2):
             for j in range(dut.DMA_CHANNEL_COUNT.value):
-                processes.append(cocotb.start_soon(with_timeout(axi_master[j].read(randint((2**32) // 16, (2**64-1) // 16) * 16, randint(0, 255), randint(0, dut.PIPELINE_CAPACITY.value.to_unsigned()-1)), 1_000_000, 'ns')))
+                processes.append(cocotb.start_soon(with_timeout(axi_master[j].write(randint((2**32) // 16, (2**64-1) // 16) * 16, randbytes(randint(1, 256) * 16), randint(0, dut.PIPELINE_CAPACITY.value.to_unsigned()-1)), 1_000_000, 'ns')))
+                processes.append(cocotb.start_soon(with_timeout(axi_master[j].read(randint((2**32) // 16, (2**64-1) // 16) * 16, randint(1, 256) * 16, randint(0, dut.PIPELINE_CAPACITY.value.to_unsigned()-1)), 1_000_000, 'ns')))
 
         await Combine(*processes)
-    print(f"Random parallel finished!")
+    print(f"Random read write parallel finished!")
