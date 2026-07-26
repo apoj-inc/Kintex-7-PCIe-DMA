@@ -1,8 +1,8 @@
 import kdma_pcie_headers_pkg::*;
 
 module kdma_dmawr_sink #(
-    parameter DMA_CHANNEL_COUNT = 9,
-    parameter PIPELINE_CAPACITY    = 4,
+    parameter DMA_CHANNEL_COUNT = 8,
+    parameter PIPELINE_CAPACITY = 4,
     
     parameter AXI_ID_WIDTH = PIPELINE_CAPACITY == 1 ? 1 : $clog2(PIPELINE_CAPACITY)
 ) (
@@ -166,7 +166,7 @@ module kdma_dmawr_sink #(
                                     {hdw0.fmt, hdw0.tp} = WR_32;
                                     {mr3d.addr, mr3d.rsvd} = awaddr_i[i][31:0];
                                     mr3d.req_id = {bus_number_i, device_number_i, function_number_i};
-                                    mr3d.tag    = awid_i[i];
+                                    mr3d.tag    = {i, awid_i[i]};
                                     mr3d.ldw_be = '1;
                                     mr3d.fdw_be = '1;
 
@@ -178,7 +178,7 @@ module kdma_dmawr_sink #(
                                     {hdw0.fmt, hdw0.tp} = WR_64;
                                     {mr4d.addr_hi, mr4d.addr_lo, mr4d.rsvd} = awaddr_i[i];
                                     mr4d.req_id = {bus_number_i, device_number_i, function_number_i};
-                                    mr4d.tag    = awid_i[i];
+                                    mr4d.tag    = {i, awid_i[i]};
                                     mr4d.ldw_be = '1;
                                     mr4d.fdw_be = '1;
 

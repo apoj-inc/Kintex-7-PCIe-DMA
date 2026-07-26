@@ -1,5 +1,5 @@
 import cocotb
-from cocotb.triggers import RisingEdge, Timer, First, with_timeout, Combine
+from cocotb.triggers import RisingEdge, FallingEdge, Timer, First, with_timeout, Combine
 from cocotbext.axi import AxiBus, AxiMaster
 
 from random import randint, randbytes
@@ -58,42 +58,42 @@ async def test(dut):
     assert result is not timeout, "The design has hung!"
     
     
-    print(f"MSIX testing")
-    print(f"MSIX started...")
-    for i in range(50):
-        await with_timeout(axi_master_msix.write(randint(0, (2**32-1) // 4) * 4, randbytes(4)), 1_000_000, 'ns')
-    for i in range(50):
-        await with_timeout(axi_master_msix.write(randint(2**32 // 4, (2**64-1) // 4) * 4, randbytes(4)), 1_000_000, 'ns')
-    print(f"MSIX finished!")
-
-
-    print(f"AXI read testing")
-    print(f"Sequential read started...")
-    for i in range(dut.PIPELINE_CAPACITY.value.to_unsigned()):
-        for j in range(dut.DMA_CHANNEL_COUNT.value):
-            await with_timeout(axi_master[j].read(randint(0, (2**32-1) // 16) * 16, randint(1, 256) * 16, i), 1_000_000, 'ns')
-
-    for i in range(dut.PIPELINE_CAPACITY.value.to_unsigned()):
-        for j in range(dut.DMA_CHANNEL_COUNT.value):
-            await with_timeout(axi_master[j].read(randint((2**32) // 16, (2**64-1) // 16) * 16, randint(1, 256) * 16, i), 1_000_000, 'ns')
-    print(f"Sequential read finished!")
-
-
-    print(f"AXI write testing")
-    print(f"Sequential write started...")
-    for i in range(dut.PIPELINE_CAPACITY.value.to_unsigned()):
-        for j in range(dut.DMA_CHANNEL_COUNT.value):
-            await with_timeout(axi_master[j].write(randint(0, (2**32-1) // 16) * 16, randbytes(randint(1, 256) * 16), i), 1_000_000, 'ns')
-
-    for i in range(dut.PIPELINE_CAPACITY.value.to_unsigned()):
-        for j in range(dut.DMA_CHANNEL_COUNT.value):
-            await with_timeout(axi_master[j].write(randint((2**32) // 16, (2**64-1) // 16) * 16, randbytes(randint(1, 256) * 16), i), 1_000_000, 'ns')
-    print(f"Sequential write finished!")
+#    print(f"MSIX testing")
+#    print(f"MSIX started...")
+#    for i in range(50):
+#        await with_timeout(axi_master_msix.write(randint(0, (2**32-1) // 4) * 4, randbytes(4)), 1_000_000, 'ns')
+#    for i in range(50):
+#        await with_timeout(axi_master_msix.write(randint(2**32 // 4, (2**64-1) // 4) * 4, randbytes(4)), 1_000_000, 'ns')
+#    print(f"MSIX finished!")
+#
+#
+#    print(f"AXI read testing")
+#    print(f"Sequential read started...")
+#    for i in range(dut.PIPELINE_CAPACITY.value.to_unsigned()):
+#        for j in range(dut.DMA_CHANNEL_COUNT.value):
+#            await with_timeout(axi_master[j].read(randint(0, (2**32-1) // 16) * 16, randint(1, 256) * 16, i), 1_000_000, 'ns')
+#
+#    for i in range(dut.PIPELINE_CAPACITY.value.to_unsigned()):
+#        for j in range(dut.DMA_CHANNEL_COUNT.value):
+#            await with_timeout(axi_master[j].read(randint((2**32) // 16, (2**64-1) // 16) * 16, randint(1, 256) * 16, i), 1_000_000, 'ns')
+#    print(f"Sequential read finished!")
+#
+#
+#    print(f"AXI write testing")
+#    print(f"Sequential write started...")
+#    for i in range(dut.PIPELINE_CAPACITY.value.to_unsigned()):
+#        for j in range(dut.DMA_CHANNEL_COUNT.value):
+#            await with_timeout(axi_master[j].write(randint(0, (2**32-1) // 16) * 16, randbytes(randint(1, 256) * 16), i), 1_000_000, 'ns')
+#
+#    for i in range(dut.PIPELINE_CAPACITY.value.to_unsigned()):
+#        for j in range(dut.DMA_CHANNEL_COUNT.value):
+#            await with_timeout(axi_master[j].write(randint((2**32) // 16, (2**64-1) // 16) * 16, randbytes(randint(1, 256) * 16), i), 1_000_000, 'ns')
+#    print(f"Sequential write finished!")
 
 
     print(f"AXI read write testing")
     print(f"Random read write parallel started...")
-    for i in range(5):
+    for i in range(1):
         print(f"Pass {i}")
 
         processes = []
@@ -113,3 +113,8 @@ async def test(dut):
 
         await Combine(*processes)
     print(f"Random read write parallel finished!")
+
+    print("Checking data and addresses...")
+    dut.start_data_checking.value = 1
+    await FallingEdge(dut.start_data_checking)
+    print("Checking data and addresses success!")

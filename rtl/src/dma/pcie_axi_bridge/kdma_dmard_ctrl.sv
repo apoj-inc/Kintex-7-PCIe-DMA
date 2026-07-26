@@ -1,6 +1,6 @@
 import kdma_pcie_headers_pkg::*;
 
-module kdma_dmard_pipeline_ctrl #(
+module kdma_dmard_ctrl #(
     parameter DMA_CHANNEL_COUNT = 8,
     parameter PIPELINE_CAPACITY = 4,
 

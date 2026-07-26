@@ -288,10 +288,10 @@ module kdma_pcie_axi_bridge #(
         end
     endgenerate
 
-    kdma_dmard_pipeline_ctrl #(
+    kdma_dmard_ctrl #(
         .DMA_CHANNEL_COUNT (DMA_CHANNEL_COUNT),
         .PIPELINE_CAPACITY (PIPELINE_CAPACITY)
-    ) u_kdma_dmard_pipeline_ctrl (
+    ) u_kdma_dmard_ctrl (
         .clk                   (clk              ),
         .rst_n                 (rst_n            ),
 

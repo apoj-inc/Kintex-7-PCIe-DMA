@@ -23,7 +23,15 @@ parameter     DMA_RQ_ADDR_WIDTH                = $clog2(MAX_RQ_DEPTH);
 parameter     DMA_TQ_ADDR_WIDTH                = $clog2(DMA_TQ_DEPTH);
 
 
+
+header_dw0_t             hdw0, hdw0_event, hdw0_in, hdw0_out;
+memory_request_3dw_12_t  mr3d, mr3d_event, mr3d_in, mr3d_out;
+memory_request_4dw_123_t mr4d, mr4d_event, mr4d_in, mr4d_out;
+cpl_3dw_12_t             cpl3, cpl3_event, cpl3_in, cpl3_out;
+
+
 semaphore pcie_data_lock;
+
 
 logic [128+5+5+8 - 1:0] pcie_data_queue [$];
 logic reg_acc_test_done;
@@ -178,6 +186,164 @@ end
 
 assign {bus_number_i, device_number_i, function_number_i} = 16'hDEAD;
 
+typedef struct packed {
+    logic [63:0] timestamp;
+    logic [31:0] dword;
+} data_validator_t;
+
+typedef struct packed {
+    logic [63:0] timestamp;
+    logic [63:0] addr;
+} addr_validator_t;
+
+data_validator_t pcie_data_out [DMA_CHANNEL_COUNT][$];
+data_validator_t pcie_data_in [DMA_CHANNEL_COUNT][$];
+data_validator_t axi_data_out [DMA_CHANNEL_COUNT][$];
+data_validator_t axi_data_in [DMA_CHANNEL_COUNT][$];
+
+addr_validator_t pcie_addr_out [DMA_CHANNEL_COUNT][$];
+addr_validator_t pcie_addr_in [DMA_CHANNEL_COUNT][$];
+addr_validator_t axi_addr_out [DMA_CHANNEL_COUNT][$];
+addr_validator_t axi_addr_in [DMA_CHANNEL_COUNT][$];
+
+
+logic await_header_out      , await_header_in      ;
+logic collect_data_out      , collect_data_in      ;
+int   current_pcie_queue_out, current_pcie_queue_in;
+logic start_data_checking;
+
+always_ff @(posedge clk or negedge rst_n) begin
+    if (!rst_n) begin
+        await_header_in  <= '1;
+        await_header_out <= '1;
+    end
+    else begin
+        if (pcie_valid_o && pcie_ready_i) begin
+            if (pcie_tlast_o) begin
+                await_header_out <= '1;
+            end
+            else begin
+                await_header_out <= '0;
+            end
+        end
+    end
+end
+
+always @(posedge clk) begin
+    if (pcie_valid_o && pcie_ready_i) begin
+        if (await_header_out) begin
+            case ({hdw0_out.fmt, hdw0_out.tp})
+                RD_32: begin
+                    current_pcie_queue_out = mr3d_out.tag[7:AXI_ID_WIDTH];
+                    pcie_addr_in[current_pcie_queue_out].push_back({$time, 32'h0, mr3d_out.addr, mr3d_out.rsvd});
+                end
+                RD_64: begin
+                    current_pcie_queue_out = mr3d_out.tag[7:AXI_ID_WIDTH];
+                    pcie_addr_in[current_pcie_queue_out].push_back({$time, mr4d_out.addr_hi, mr4d_out.addr_lo, mr4d_out.rsvd});
+                end
+                WR_32: begin
+                    if (hdw0_out.length != 1) begin
+                        collect_data_out = 1;
+                        current_pcie_queue_out = mr3d_out.tag[7:AXI_ID_WIDTH];
+                        pcie_addr_out[current_pcie_queue_out].push_back({$time, 32'h0, mr3d_out.addr, mr3d_out.rsvd});
+                        pcie_data_out[current_pcie_queue_out].push_back({$time, pcie_data_o[127:96]});
+                    end
+                    else begin
+                        collect_data_out = 0;
+                    end
+                end
+                WR_64: begin
+                    if (hdw0_out.length != 1) begin
+                        collect_data_out = 1;
+                        current_pcie_queue_out = mr4d_out.tag[7:AXI_ID_WIDTH];
+                        pcie_addr_out[current_pcie_queue_out].push_back({$time, mr4d_out.addr_hi, mr4d_out.addr_lo, mr4d_out.rsvd});
+                    end
+                    else begin
+                        collect_data_out = 0;
+                    end
+                end
+                default: begin
+                    collect_data_out = 0;
+                end
+            endcase
+        end
+        else begin
+            if (collect_data_out) begin
+                pcie_data_out[current_pcie_queue_out].push_back({$time, pcie_data_o[31:0]});
+                pcie_data_out[current_pcie_queue_out].push_back({$time, pcie_data_o[63:32]});
+                pcie_data_out[current_pcie_queue_out].push_back({$time, pcie_data_o[95:64]});
+                if (pcie_tkeep_o != 16'h0FFF) begin
+                    pcie_data_out[current_pcie_queue_out].push_back({$time, pcie_data_o[127:96]});
+                end
+            end
+            collect_data_out = ~pcie_tlast_o;
+        end
+    end
+end
+
+always @(posedge clk) begin
+    if (pcie_valid_i && pcie_ready_o) begin
+        if (pcie_sof_i) begin
+            case ({hdw0_in.fmt, hdw0_in.tp})
+                CPLD: begin
+                    collect_data_in = '1;
+                    current_pcie_queue_in = cpl3_in.tag[7:AXI_ID_WIDTH];
+                    pcie_data_in[current_pcie_queue_in].push_back({$time, pcie_data_i[127:96]});
+                end
+                default: begin
+                    collect_data_in = '0;
+                end
+            endcase
+        end
+        else begin
+            if (collect_data_in) begin
+                if (!pcie_eof_i[4]) begin
+                    pcie_data_in[current_pcie_queue_in].push_back({$time, pcie_data_i[31:0]});
+                    pcie_data_in[current_pcie_queue_in].push_back({$time, pcie_data_i[63:32]});
+                    pcie_data_in[current_pcie_queue_in].push_back({$time, pcie_data_i[95:64]});
+                    pcie_data_in[current_pcie_queue_in].push_back({$time, pcie_data_i[127:96]});
+                end
+                else begin
+                    pcie_data_in[current_pcie_queue_in].push_back({$time, pcie_data_i[31:0]});
+                    if (pcie_eof_i >= 5'b10111) begin
+                        pcie_data_in[current_pcie_queue_in].push_back({$time, pcie_data_i[63:32]});
+                    end
+                    if (pcie_eof_i >= 5'b11011) begin
+                        pcie_data_in[current_pcie_queue_in].push_back({$time, pcie_data_i[95:64]});
+                    end
+                    if (pcie_eof_i >= 5'b11111) begin
+                        pcie_data_in[current_pcie_queue_in].push_back({$time, pcie_data_i[127:96]});
+                    end
+                end
+            end
+        end
+    end
+end
+
+
+generate
+    for (genvar i = 0; i < DMA_CHANNEL_COUNT; i++) begin : axi_queue_filling
+        always @(posedge clk) begin
+            if (awvalid[i] && awready[i]) begin
+                axi_addr_in[i].push_back({$time, awaddr[i]});
+            end
+            if (wvalid[i] && wready[i]) begin
+                for (int j = 0; j < 4; j++) begin
+                    axi_data_in[i].push_back({$time, wdata[i][j*32 +: 32]});
+                end
+            end
+            if (arvalid[i] && arready[i]) begin
+                axi_addr_out[i].push_back({$time, araddr[i]});
+            end
+            if (rvalid[i] && rready[i]) begin
+                for (int j = 0; j < 4; j++) begin
+                    axi_data_out[i].push_back({$time, rdata[i][j*32 +: 32]});
+                end
+            end
+        end
+    end
+endgenerate
+
 kdma_pcie_axi_bridge #(
     .BAR_COUNT         (BAR_COUNT        ),
 
@@ -296,7 +462,13 @@ kdma_msix_flatten #(
 );
 
 kdma_csr_flatten #(
-    .DMA_CHANNEL_COUNT (DMA_CHANNEL_COUNT)
+    .DMA_CHANNEL_COUNT (DMA_CHANNEL_COUNT),
+
+    .DMA_WQ_DEPTH      (DMA_WQ_DEPTH     ),
+    .DMA_RQ_DEPTH      (DMA_RQ_DEPTH     ),
+    .DMA_TQ_DEPTH      (DMA_TQ_DEPTH     ),
+    .MAX_WQ_DEPTH      (MAX_WQ_DEPTH     ),
+    .MAX_RQ_DEPTH      (MAX_RQ_DEPTH     )
 ) u_kdma_csr_flatten (
     .clk                (clk            ),
     .rst_n              (rst_n          ),
@@ -355,6 +527,7 @@ end
 
 initial begin
     reg_acc_test_done = 0;
+    start_data_checking = 0;
 
     
     arvalid = '{default: '0};
@@ -379,12 +552,155 @@ initial begin
     repeat (100) @(posedge clk);
     
     reg_acc_test_done = 1;
-end
 
-header_dw0_t             hdw0, hdw0_event, hdw0_in, hdw0_out;
-memory_request_3dw_12_t  mr3d, mr3d_event, mr3d_in, mr3d_out;
-memory_request_4dw_123_t mr4d, mr4d_event, mr4d_in, mr4d_out;
-cpl_3dw_12_t             cpl3, cpl3_event, cpl3_in, cpl3_out;
+    @(posedge start_data_checking);
+
+    repeat (1000) @(posedge clk);
+
+    for (int i = 0; i < DMA_CHANNEL_COUNT; i++) begin
+        data_validator_t exp, recv;
+
+        $display("AXI in %d dwords, PCIe out %d dwords", axi_data_in[i].size, pcie_data_out[i].size);
+
+        while (axi_data_in[i].size && pcie_data_out[i].size) begin
+            exp = axi_data_in[i].pop_front();
+            recv = pcie_data_out[i].pop_front();
+
+            assert (exp.dword == recv.dword) 
+            else   begin
+                $display("PCIe out channel %d data mismatch: %x axi at %d ns, %x pcie at %d ns", i, exp.dword, exp.timestamp, recv.dword, recv.timestamp);
+                $finish;
+            end
+        end
+
+        assert (axi_data_in[i].size == 0) 
+        else   begin
+            $display("PCIe out channel %d AXI data leftover %d dwords", i, axi_data_in[i].size);
+            while (axi_data_in[i].size) begin
+                exp = axi_data_in[i].pop_front();
+                $display("%x at %d ns", exp.dword, exp.timestamp);
+            end
+            $finish;
+        end
+
+        assert (pcie_data_out[i].size == 0) 
+        else   begin
+            $display("PCIe out channel %d PCIe data leftover %d dwords", i, pcie_data_out[i].size);
+            while (pcie_data_out[i].size) begin
+                recv = pcie_data_out[i].pop_front();
+                $display("%x at %d ns", recv.dword, recv.timestamp);
+            end
+            $finish;
+        end
+
+
+        $display("AXI out %d dwords, PCIe in %d dwords", axi_data_out[i].size, pcie_data_in[i].size);
+
+        while (axi_data_out[i].size && pcie_data_in[i].size) begin
+            exp = axi_data_out[i].pop_front();
+            recv = pcie_data_in[i].pop_front();
+
+            assert (exp.dword == recv.dword) 
+            else   begin
+                $display("PCIe in channel %d data mismatch: %x axi at %d ns, %x pcie at %d ns", i, exp.dword, exp.timestamp, recv.dword, recv.timestamp);
+                $finish;
+            end
+        end
+
+        assert (axi_data_out[i].size == 0) 
+        else   begin
+            $display("PCIe in channel %d AXI data leftover, %d dwords", i, axi_data_out[i].size);
+            while (axi_data_out[i].size) begin
+                exp = axi_data_out[i].pop_front();
+                $display("%x at %d ns", exp.dword, exp.timestamp);
+            end
+            $finish;
+        end
+
+        assert (pcie_data_in[i].size == 0) 
+        else   begin
+            $display("PCIe in channel %d PCIe data leftover, %d dwords", i, pcie_data_in[i].size);
+            while (pcie_data_in[i].size) begin
+                recv = pcie_data_in[i].pop_front();
+                $display("%x at %d ns", recv.dword, recv.timestamp);
+            end
+            $finish;
+        end
+    end
+
+    for (int i = 0; i < DMA_CHANNEL_COUNT; i++) begin
+        addr_validator_t exp, recv;
+
+        $display("AXI in %d transactions, PCIe out %d transactions", axi_addr_in[i].size, pcie_addr_out[i].size);
+
+        while (axi_addr_in[i].size && pcie_addr_out[i].size) begin
+            exp = axi_addr_in[i].pop_front();
+            recv = pcie_addr_out[i].pop_front();
+
+            assert (exp.addr == recv.addr) 
+            else   begin
+                $display("PCIe out channel %d addr mismatch: %x axi at %d ns, %x pcie at %d ns", i, exp.addr, exp.timestamp, recv.addr, recv.timestamp);
+                $finish;
+            end
+        end
+
+        assert (axi_addr_in[i].size == 0) 
+        else   begin
+            $display("PCIe out channel %d AXI addr leftover, %d transactions", i, axi_addr_in[i].size);
+            while (axi_addr_in[i].size) begin
+                exp = axi_addr_in[i].pop_front();
+                $display("%x at %d ns", exp.addr, exp.timestamp);
+            end
+            $finish;
+        end
+
+        assert (pcie_addr_out[i].size == 0) 
+        else   begin
+            $display("PCIe out channel %d PCIe addr leftover, %d transactions", i, pcie_addr_out[i].size);
+            while (pcie_addr_out[i].size) begin
+                recv = pcie_addr_out[i].pop_front();
+                $display("%x at %d ns", recv.addr, recv.timestamp);
+            end
+            $finish;
+        end
+
+
+        $display("AXI out %d transactions, PCIe in %d transactions", axi_addr_out[i].size, pcie_addr_in[i].size);
+
+        while (axi_addr_out[i].size && pcie_addr_in[i].size) begin
+            exp = axi_addr_out[i].pop_front();
+            recv = pcie_addr_in[i].pop_front();
+
+            assert (exp.addr == recv.addr) 
+            else   begin
+                $display("PCIe in channel %d addr mismatch: %x axi at %d ns, %x pcie at %d ns", i, exp.addr, exp.timestamp, recv.addr, recv.timestamp);
+                $finish;
+            end
+        end
+
+        assert (axi_addr_out[i].size == 0) 
+        else   begin
+            $display("PCIe in channel %d AXI addr leftover, %d transactions", i, axi_addr_out[i].size);
+            while (axi_addr_out[i].size) begin
+                exp = axi_addr_out[i].pop_front();
+                $display("%x at %d ns", exp.addr, exp.timestamp);
+            end
+            $finish;
+        end
+
+        assert (pcie_addr_in[i].size == 0) 
+        else   begin
+            $display("PCIe in channel %d PCIe addr leftover, %d transactions", i, pcie_addr_in[i].size);
+            while (pcie_addr_in[i].size) begin
+                recv = pcie_addr_in[i].pop_front();
+                $display("%x at %d ns", recv.addr, recv.timestamp);
+            end
+            $finish;
+        end
+    end
+
+    start_data_checking = 0;
+end
 
 logic tlast_was;
 
