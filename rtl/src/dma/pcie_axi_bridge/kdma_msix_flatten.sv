@@ -60,9 +60,9 @@ generate
 
     for (i = DMA_CHANNEL_COUNT; i < DMA_CHANNEL_COUNT*2; i++) begin : user_msix
         always_comb begin
-            user_msix_addrs_o[i] = hwif_out.MSIX_ENTRY_REG[i].ADDR.value;
-            user_msix_data_o[i]  = hwif_out.MSIX_ENTRY_REG[i].DATA.value;
-            user_msix_mask_o[i]  = hwif_out.MSIX_ENTRY_REG[i].MASK.value;
+            user_msix_addrs_o[i-DMA_CHANNEL_COUNT] = hwif_out.MSIX_ENTRY_REG[i].ADDR.value;
+            user_msix_data_o[i-DMA_CHANNEL_COUNT]  = hwif_out.MSIX_ENTRY_REG[i].DATA.value;
+            user_msix_mask_o[i-DMA_CHANNEL_COUNT]  = hwif_out.MSIX_ENTRY_REG[i].MASK.value;
         end
     end
 endgenerate

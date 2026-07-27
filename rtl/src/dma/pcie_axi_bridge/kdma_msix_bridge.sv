@@ -168,6 +168,7 @@ module kdma_msix_bridge #(
         hdr_was_next   = hdr_was  ;
 
         address_next = address;
+        data_next    = data   ;
 
         case (state)
             IDLE    : begin
