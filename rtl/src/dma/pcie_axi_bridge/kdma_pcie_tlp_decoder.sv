@@ -95,11 +95,11 @@ module kdma_pcie_tlp_decoder #(
     assign mr_4dw_123_inb = pcie_detach_data_i[32 +: 96];
     assign cpl_3dw_12_inb = pcie_detach_data_i[32 +: 64];
 
-    logic [127:0] bar_prdata_le [DMA_CHANNEL_COUNT];
+    logic [127:0] bar_prdata_le [BAR_COUNT];
     generate
         genvar i, j;
 
-        for (i = 0; i < DMA_CHANNEL_COUNT; i++) begin : endian_inverter
+        for (i = 0; i < BAR_COUNT; i++) begin : endian_inverter
             for (j = 0; j < 4; j++) begin : per_dword
                 assign bar_prdata_le[i][j*32 +: 32] =   {bar_prdata_i[i][j*32 + 0  +: 8],
                                                          bar_prdata_i[i][j*32 + 8  +: 8],
