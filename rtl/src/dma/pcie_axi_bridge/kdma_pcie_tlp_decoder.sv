@@ -83,8 +83,28 @@ module kdma_pcie_tlp_decoder #(
     assign bar_penable_o = bar_penable;
     assign bar_paddr_o   = bar_paddr  ;
     assign bar_pwrite_o  = bar_pwrite ;
-    assign bar_pwdata_o  = bar_pwdata ;
     assign bar_pstrb_o   = bar_pstrb  ;
+
+    logic [127:0] bar_prdata_le [BAR_COUNT];
+    generate
+        genvar i, j;
+
+        for (i = 0; i < BAR_COUNT; i++) begin : prdata_endian_inverter
+            for (j = 0; j < 4; j++) begin : per_dword
+                assign bar_prdata_le[i][j*32 +: 32] =   {bar_prdata_i[i][j*32 + 0  +: 8],
+                                                         bar_prdata_i[i][j*32 + 8  +: 8],
+                                                         bar_prdata_i[i][j*32 + 16 +: 8],
+                                                         bar_prdata_i[i][j*32 + 24 +: 8]};
+            end
+        end
+
+        for (i = 0; i < 4; i++) begin : pwdata_endian_inverter
+            assign bar_pwdata_o[i*32 +: 32] =  {bar_pwdata[i*32 + 0  +: 8],
+                                                bar_pwdata[i*32 + 8  +: 8],
+                                                bar_pwdata[i*32 + 16 +: 8],
+                                                bar_pwdata[i*32 + 24 +: 8]};
+        end
+    endgenerate
 
     header_dw0_t             h_dw0_inb     , h_dw0_outb     ;
     memory_request_3dw_12_t  mr_3dw_12_inb                  ;
@@ -94,20 +114,6 @@ module kdma_pcie_tlp_decoder #(
     assign mr_3dw_12_inb  = pcie_detach_data_i[32 +: 64];
     assign mr_4dw_123_inb = pcie_detach_data_i[32 +: 96];
     assign cpl_3dw_12_inb = pcie_detach_data_i[32 +: 64];
-
-    logic [127:0] bar_prdata_le [BAR_COUNT];
-    generate
-        genvar i, j;
-
-        for (i = 0; i < BAR_COUNT; i++) begin : endian_inverter
-            for (j = 0; j < 4; j++) begin : per_dword
-                assign bar_prdata_le[i][j*32 +: 32] =   {bar_prdata_i[i][j*32 + 0  +: 8],
-                                                         bar_prdata_i[i][j*32 + 8  +: 8],
-                                                         bar_prdata_i[i][j*32 + 16 +: 8],
-                                                         bar_prdata_i[i][j*32 + 24 +: 8]};
-            end
-        end
-    endgenerate
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
