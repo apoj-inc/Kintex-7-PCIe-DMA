@@ -150,6 +150,7 @@ module kdma_msix_bridge #(
         msix_awready_o = '0;
         msix_wready_o  = '0;
         msix_bvalid_o  = '0;
+        msix_bresp_o   = '0;
 
         pcie_valid_o = '0;
         pcie_data_o  = '0;

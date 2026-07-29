@@ -518,7 +518,7 @@ module kdma_pcie_tlp_decoder #(
             end
             BAR_RD_RESP : begin
                 {h_dw0_outb.rsvd_0, h_dw0_outb.rsvd_1, h_dw0_outb.rsvd_2} = '0;
-                {h_dw0_outb.fmt, h_dw0_outb.tp} = CPL;
+                {h_dw0_outb.fmt, h_dw0_outb.tp} = CPLD;
                 h_dw0_outb.qos = '0;
                 h_dw0_outb.digest = '0;
                 h_dw0_outb.err = '0;
