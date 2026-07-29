@@ -32,19 +32,19 @@ addrmap kdma_csr_am #(
             desc = "KDMA channel count";
             hw   = w;
             sw   = r;
-        } DMARD_TASK_FREE [95:64] = DMA_TQ_DEPTH;
+        } DMARD_TASK_FREE [95:64];
 
         field {
             desc = "KDMA channel count";
             hw   = w;
             sw   = r;
-        } DMAWR_TASK_FREE [63:32] = DMA_TQ_DEPTH;
+        } DMAWR_TASK_FREE [63:32];
 
         field {
             desc = "KDMA channel count";
-            hw   = na;
+            hw   = w;
             sw   = r;
-        } DMA_CHANNEL_COUNT [31:16] = DMA_CHANNEL_COUNT;
+        } DMA_CHANNEL_COUNT [31:16];
 
         field {
             desc = "Pointer to struct 0";
