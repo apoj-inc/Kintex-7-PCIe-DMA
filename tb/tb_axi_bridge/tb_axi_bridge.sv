@@ -909,7 +909,7 @@ initial begin
                 {hdw0.fmt, hdw0.tp} = RD_32;
                 hdw0.length = i;
                 
-                mr3d.addr = (bar == 'b0011) ? (j*4) >> 2 : ('h40 + j*4) >> 2;
+                mr3d.addr = (bar == 'b0011) ? (j*4) >> 2 : (j*4) >> 2;
                 {mr3d.rsvd, mr3d.ldw_be} = '0;
                 mr3d.fdw_be = '1;
                 mr3d.tag = $urandom();
@@ -944,7 +944,7 @@ initial begin
                 {hdw0.fmt, hdw0.tp} = RD_64;
                 hdw0.length = i;
                 
-                mr4d.addr_lo = (bar == 'b0011) ? (j*4) >> 2 : ('h40 + j*4) >> 2;
+                mr4d.addr_lo = (bar == 'b0011) ? (j*4) >> 2 : (j*4) >> 2;
                 mr4d.addr_hi = '0;
                 {mr4d.rsvd, mr4d.ldw_be} = '0;
                 mr4d.fdw_be = '1;

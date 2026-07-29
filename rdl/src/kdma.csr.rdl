@@ -41,16 +41,16 @@ addrmap kdma_csr_am #(
         } DMAWR_TASK_FREE [63:32];
 
         field {
-            desc = "KDMA channel count";
-            hw   = w;
-            sw   = r;
-        } DMA_CHANNEL_COUNT [31:16];
-
-        field {
             desc = "Pointer to struct 0";
             hw   = w;
             sw   = r;
-        } STRUCT_0_PTR [15:0];
+        } STRUCT_0_PTR [31:16];
+
+        field {
+            desc = "KDMA channel count";
+            hw   = w;
+            sw   = r;
+        } DMA_CHANNEL_COUNT [15:0];
     };
 
     global_r GLOBAL_REG;
