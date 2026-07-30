@@ -1,0 +1,50 @@
+`ifndef __KDMA__DECODER__RDL__
+`define __KDMA__DECODER__RDL__
+
+addrmap kdma_decoder_am #(
+    bit DMA_CHANNEL_COUNT = 8
+) {
+    desc = "KDMA registers for generating DMA tasks";
+
+    reg dma_task_r {
+        desc = "Has a RD/WR pair of offset+bytecount registers";
+        regwidth = 128;
+        
+        field {
+            desc = "DMARD task register bytecount";
+            hw   = r;
+            sw   = rw;
+
+            swmod = true;
+        } BYTECNT_RD[117:96] = 0x0;
+        
+        field {
+            desc = "DMARD task register offset";
+            hw   = r;
+            sw   = rw;
+
+            swmod = true;
+        } OFFSET_RD[85:64] = 0x0;
+
+        field {
+            desc = "DMAWR task register bytecount";
+            hw   = r;
+            sw   = rw;
+
+            swmod = true;
+        } BYTECNT_WR[53:32] = 0x0;
+        
+        field {
+            desc = "DMAWR task register offset";
+            hw   = r;
+            sw   = rw;
+
+            swmod = true;
+        } OFFSET_WR[21:0] = 0x0;
+    };
+
+    dma_task_r DMA_TASK_REG [DMA_CHANNEL_COUNT];
+    
+};
+
+`endif
