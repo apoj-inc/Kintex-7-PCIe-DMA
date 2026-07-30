@@ -21,6 +21,12 @@ module kdma_axis_interconnect #(
     input  logic [127:0]                  dmawr_pcie_data_i     [DMA_CHANNEL_COUNT],
     input  logic [15:0]                   dmawr_pcie_tkeep_i    [DMA_CHANNEL_COUNT],
     input  logic [DMA_CHANNEL_COUNT-1:0]  dmawr_pcie_tlast_i                       ,
+
+    input  logic                          msix_pcie_valid_i                        ,
+    output logic                          msix_pcie_ready_o                        ,
+    input  logic [127:0]                  msix_pcie_data_i                         ,
+    input  logic [15:0]                   msix_pcie_tkeep_i                        ,
+    input  logic                          msix_pcie_tlast_i                        ,
     
     output logic                          pcie_valid_o                             ,
     input  logic                          pcie_ready_i                             ,
@@ -46,10 +52,10 @@ module kdma_axis_interconnect #(
     logic              dmard_pcie_tlast_rd, dmawr_pcie_tlast_rd;
     logic [128+16-1:0] dmard_pcie_data_rd , dmawr_pcie_data_rd ;
     
-    logic [2:0]        final_pcie_valid_wr    ;
-    logic [2:0]        final_pcie_ready_wr    ;
-    logic [128+16-1:0] final_pcie_data_wr  [3];
-    logic [2:0]        final_pcie_tlast_wr    ;
+    logic [3:0]        final_pcie_valid_wr    ;
+    logic [3:0]        final_pcie_ready_wr    ;
+    logic [128+16-1:0] final_pcie_data_wr  [4];
+    logic [3:0]        final_pcie_tlast_wr    ;
 
     assign final_pcie_valid_wr[0] = dmard_pcie_valid_rd;
     assign dmard_pcie_ready_rd = final_pcie_ready_wr[0];
@@ -65,6 +71,11 @@ module kdma_axis_interconnect #(
     assign bar_resp_pcie_ready_o = final_pcie_ready_wr[2];
     assign final_pcie_tlast_wr[2] = bar_resp_pcie_tlast_i;
     assign final_pcie_data_wr [2] = {bar_resp_pcie_data_i, bar_resp_pcie_tkeep_i};
+
+    assign final_pcie_valid_wr[3] = msix_pcie_valid_i     ;
+    assign msix_pcie_ready_o      = final_pcie_ready_wr[3];
+    assign final_pcie_tlast_wr[3] = msix_pcie_tlast_i     ;
+    assign final_pcie_data_wr [3] = {msix_pcie_data_i, msix_pcie_tkeep_i};
 
     hs_wrmhl_arbiter #(
         .DATA_WIDTH (128+16           ),
@@ -108,7 +119,7 @@ module kdma_axis_interconnect #(
     
     hs_wrmhl_arbiter #(
         .DATA_WIDTH (128+16),
-        .INPUT_NUM  (3     )
+        .INPUT_NUM  (4     )
     ) u_hs_wrmhl_arbiter_final (
         .clk     (clk  ),
         .rst_n   (rst_n),

@@ -64,9 +64,10 @@ always_comb begin
     dma_reset_o = hwif_out.GLOBAL_REG.DMA_RESET.value;
     
 
-    hwif_in.GLOBAL_REG.STRUCT_0_PTR.next    = 'h40             ;
-    hwif_in.GLOBAL_REG.DMAWR_TASK_FREE.next = dmawr_task_free_i;
-    hwif_in.GLOBAL_REG.DMARD_TASK_FREE.next = dmard_task_free_i;
+    hwif_in.GLOBAL_REG.STRUCT_0_PTR.next      = 'h40             ;
+    hwif_in.GLOBAL_REG.DMA_CHANNEL_COUNT.next = DMA_CHANNEL_COUNT;
+    hwif_in.GLOBAL_REG.DMAWR_TASK_FREE.next   = dmawr_task_free_i;
+    hwif_in.GLOBAL_REG.DMARD_TASK_FREE.next   = dmard_task_free_i;
 end
 
 generate

@@ -1,6 +1,6 @@
 import kdma_pcie_headers_pkg::*;
 
-module kdma_rd_pipeline_ctrl #(
+module kdma_dmard_ctrl #(
     parameter DMA_CHANNEL_COUNT = 8,
     parameter PIPELINE_CAPACITY = 4,
 
@@ -94,15 +94,13 @@ module kdma_rd_pipeline_ctrl #(
                     id_busy <= '0;
                 end
                 else begin
+                    if (id_fifo_snoop_valid_i[i] && id_fifo_snoop_ready_i[i]) begin
+                        if (id_fifo_snoop_last_i[i]) begin
+                            id_busy[exp_id] <= '0;
+                        end
+                    end
                     if (pcie_valid_o[i] && pcie_ready_i[i]) begin
                         id_busy[arid_i[i]] <= '1;
-                    end
-                    else begin
-                        if (id_fifo_snoop_valid_i[i] && id_fifo_snoop_ready_i[i]) begin
-                            if (id_fifo_snoop_last_i[i]) begin
-                                id_busy[exp_id] <= '0;
-                            end
-                        end
                     end
                 end
             end
@@ -123,7 +121,7 @@ module kdma_rd_pipeline_ctrl #(
             always_comb begin
                 {hdw0.rsvd_2, hdw0.rsvd_1, hdw0.qos, hdw0.rsvd_0, hdw0.digest, hdw0.err, hdw0.attr, hdw0.addr_tran} = '0;
                 {hdw0.fmt, hdw0.tp} = araddr_i[i][63:32] == '0 ? RD_32 : RD_64;
-                hdw0.length = arlen_i[i] >> 2;
+                hdw0.length = (arlen_i[i] + 1) << 2;
 
                 mr3.addr   = {araddr_i[i][31:4], 2'b0};
                 mr3.rsvd   = '0;

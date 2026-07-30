@@ -303,8 +303,8 @@ module kdma_csr_am (
         automatic logic [127:0] readback_data_var;
         readback_data_var = '0;
         if(rd_mux_addr == 10'h0) begin
-            readback_data_var[15:0] = hwif_in.GLOBAL_REG.STRUCT_0_PTR.next;
-            readback_data_var[31:16] = 16'h8;
+            readback_data_var[15:0] = hwif_in.GLOBAL_REG.DMA_CHANNEL_COUNT.next;
+            readback_data_var[31:16] = hwif_in.GLOBAL_REG.STRUCT_0_PTR.next;
             readback_data_var[63:32] = hwif_in.GLOBAL_REG.DMAWR_TASK_FREE.next;
             readback_data_var[95:64] = hwif_in.GLOBAL_REG.DMARD_TASK_FREE.next;
             readback_data_var[96] = field_storage.GLOBAL_REG.DMA_RESET.value;
