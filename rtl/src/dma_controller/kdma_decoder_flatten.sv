@@ -19,7 +19,7 @@ module kdma_decoder_flatten #(
     output logic [21:0]                  offset_wr_o       [DMA_CHANNEL_COUNT],
     output logic [21:0]                  bytecount_rd_o    [DMA_CHANNEL_COUNT],
     output logic [21:0]                  offset_rd_o       [DMA_CHANNEL_COUNT],
-    
+
     output logic [DMA_CHANNEL_COUNT-1:0] btcnt_wr_swmod_o                     ,
     output logic [DMA_CHANNEL_COUNT-1:0] ofst_wr_swmod_o                      ,
     output logic [DMA_CHANNEL_COUNT-1:0] btcnt_rd_swmod_o                     ,

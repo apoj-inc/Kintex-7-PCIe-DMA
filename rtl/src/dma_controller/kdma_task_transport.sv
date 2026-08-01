@@ -1,0 +1,189 @@
+module kdma_task_transport #(
+    parameter     DMA_CHANNEL_COUNT                     = 8         ,
+    
+    parameter     DMA_BYTES_WIDTH                       = 22        ,
+    parameter     DMA_OFFFSET_WIDTH                     = 22        ,
+
+    parameter int DMA_WQ_DEPTH      [DMA_CHANNEL_COUNT] = '{8{1024}},
+    parameter int DMA_RQ_DEPTH      [DMA_CHANNEL_COUNT] = '{8{1024}},
+    parameter     DMA_TQ_DEPTH                          = 8         ,
+
+    parameter DMA_TQ_ADDR_WIDTH       = $clog2(DMA_TQ_DEPTH)                                  ,
+    parameter DMA_BURST_WIDTH         = DMA_BYTES_WIDTH - 4                                   ,
+    parameter DMA_CHANNEL_COUNT_WIDTH = DMA_CHANNEL_COUNT == 1 ? 1 : $clog2(DMA_CHANNEL_COUNT)
+) (
+    input  logic                               clk                                    ,
+    input  logic                               rst_n                                  ,
+
+    input  logic                               dma_task_valid_i                       ,
+    output logic                               dma_task_ready_o                       ,
+    input  logic [DMA_CHANNEL_COUNT_WIDTH-1:0] dma_task_channel_i                     ,
+    input  logic [DMA_BURST_WIDTH-1:0]         dma_task_burst_i                       ,
+    input  logic [DMA_OFFFSET_WIDTH-1:0]       dma_task_offset_i                      ,
+    input  logic                               dma_task_write_i                       ,
+
+    output logic [DMA_TQ_ADDR_WIDTH:0]         dmawr_task_free_o                      ,
+    output logic [DMA_TQ_ADDR_WIDTH:0]         dmard_task_free_o                      ,
+
+    output logic [DMA_CHANNEL_COUNT-1:0]       dmawr_task_valid_o                     ,
+    input  logic [DMA_CHANNEL_COUNT-1:0]       dmawr_task_ready_i                     ,
+    output logic [DMA_BURST_WIDTH-1:0]         dmawr_task_burst_o  [DMA_CHANNEL_COUNT],
+    output logic [DMA_OFFFSET_WIDTH-1:0]       dmawr_task_offset_o [DMA_CHANNEL_COUNT],
+    output logic [DMA_CHANNEL_COUNT-1:0]       dmawr_task_write_o                     ,
+    output logic [5:0]                         dmawr_task_init_o   [DMA_CHANNEL_COUNT],
+
+    output logic [DMA_CHANNEL_COUNT-1:0]       dmard_task_valid_o                     ,
+    input  logic [DMA_CHANNEL_COUNT-1:0]       dmard_task_ready_i                     ,
+    output logic [DMA_BURST_WIDTH-1:0]         dmard_task_burst_o  [DMA_CHANNEL_COUNT],
+    output logic [DMA_OFFFSET_WIDTH-1:0]       dmard_task_offset_o [DMA_CHANNEL_COUNT],
+    output logic [DMA_CHANNEL_COUNT-1:0]       dmard_task_write_o                     ,
+    output logic [5:0]                         dmard_task_init_o   [DMA_CHANNEL_COUNT]
+);
+
+    logic dmawr_task_ready, dmard_task_ready;
+
+    logic                               dmawr_task_valid_rd  , dmawr_task_valid_sk  ;
+    logic                               dmawr_task_ready_rd  , dmawr_task_ready_sk  ;
+    logic [DMA_CHANNEL_COUNT_WIDTH-1:0] dmawr_task_channel_rd, dmawr_task_channel_sk;
+    logic [DMA_BURST_WIDTH-1:0]         dmawr_task_burst_rd  , dmawr_task_burst_sk  ;
+    logic [DMA_OFFFSET_WIDTH-1:0]       dmawr_task_offset_rd , dmawr_task_offset_sk ;
+    logic                               dmawr_task_write_rd  , dmawr_task_write_sk  ;
+
+    logic                               dmard_task_valid_rd  , dmard_task_valid_sk  ;
+    logic                               dmard_task_ready_rd  , dmard_task_ready_sk  ;
+    logic [DMA_CHANNEL_COUNT_WIDTH-1:0] dmard_task_channel_rd, dmard_task_channel_sk;
+    logic [DMA_BURST_WIDTH-1:0]         dmard_task_burst_rd  , dmard_task_burst_sk  ;
+    logic [DMA_OFFFSET_WIDTH-1:0]       dmard_task_offset_rd , dmard_task_offset_sk ;
+    logic                               dmard_task_write_rd  , dmard_task_write_sk  ;
+
+    assign dma_task_ready_o = dma_task_write_i ? dmawr_task_ready : dmard_task_ready;
+
+    // DMAWR
+    stream_fifo #(
+        .DATA_WIDTH (1 + DMA_CHANNEL_COUNT_WIDTH + DMA_BURST_WIDTH + DMA_OFFFSET_WIDTH),
+        .FIFO_DEPTH (DMA_TQ_DEPTH)
+    ) u_stream_fifo_dmawr_tasks (
+        .ACLK    (clk                                                                                    ),
+        .ARESETn (rst_n                                                                                  ),
+
+        .data_i  ({dma_task_write_i, dma_task_channel_i, dma_task_burst_i, dma_task_offset_i}            ),
+        .valid_i (dma_task_valid_i & dma_task_write_i                                                    ),
+        .ready_o (dmawr_task_ready                                                                       ),
+        .free_o  (dmawr_task_free_o                                                                      ),
+
+        .data_o  ({dmawr_task_write_rd, dmawr_task_channel_rd, dmawr_task_burst_rd, dmawr_task_offset_rd}),
+        .valid_o (dmawr_task_valid_rd                                                                    ),
+        .ready_i (dmawr_task_ready_rd                                                                    ),
+        .count_o (                                                                                       ) // NC
+    );
+
+    // Skid
+    stream_fifo #(
+        .DATA_WIDTH (1 + DMA_CHANNEL_COUNT_WIDTH + DMA_BURST_WIDTH + DMA_OFFFSET_WIDTH),
+        .FIFO_DEPTH (1)
+    ) u_stream_fifo_dmawr_skid (
+        .ACLK    (clk                                                                                    ),
+        .ARESETn (rst_n                                                                                  ),
+
+        .data_i  ({dmawr_task_write_rd, dmawr_task_channel_rd, dmawr_task_burst_rd, dmawr_task_offset_rd}),
+        .valid_i (dmawr_task_valid_rd                                                                    ),
+        .ready_o (dmawr_task_ready_rd                                                                    ),
+        .free_o  (                                                                                       ), // NC
+
+        .data_o  ({dmawr_task_write_sk, dmawr_task_channel_sk, dmawr_task_burst_sk, dmawr_task_offset_sk}),
+        .valid_o (dmawr_task_valid_sk                                                                    ),
+        .ready_i (dmawr_task_ready_sk                                                                    ),
+        .count_o (                                                                                       ) // NC
+    );
+
+    kdma_task_demux #(
+        .DMA_CHANNEL_COUNT (DMA_CHANNEL_COUNT),
+        .DMA_OFFFSET_WIDTH (DMA_OFFFSET_WIDTH),
+        .DMA_BYTES_WIDTH   (DMA_BYTES_WIDTH  ),
+
+        .DMA_WQ_DEPTH      (DMA_WQ_DEPTH     ),
+        .DMA_RQ_DEPTH      (DMA_RQ_DEPTH     )
+    ) u_kdmawr_task_demux (
+        .clk                   (clk                  ),
+        .rst_n                 (rst_n                ),
+
+        .in_dma_task_valid_i   (dmawr_task_valid_sk  ),
+        .in_dma_task_ready_o   (dmawr_task_ready_sk  ),
+        .in_dma_task_channel_i (dmawr_task_channel_sk),
+        .in_dma_task_burst_i   (dmawr_task_burst_sk  ),
+        .in_dma_task_offset_i  (dmawr_task_offset_sk ),
+        .in_dma_task_write_i   (dmawr_task_write_sk  ),
+
+        .out_dma_task_valid_o  (dmawr_task_valid_o   ),
+        .out_dma_task_ready_i  (dmawr_task_ready_i   ),
+        .out_dma_task_burst_o  (dmawr_task_burst_o   ),
+        .out_dma_task_offset_o (dmawr_task_offset_o  ),
+        .out_dma_task_write_o  (dmawr_task_write_o   ),
+        .out_dma_task_init_o   (dmawr_task_init_o    )
+    );
+    
+    // DMARD
+    stream_fifo #(
+        .DATA_WIDTH (1 + DMA_CHANNEL_COUNT_WIDTH + DMA_BURST_WIDTH + DMA_OFFFSET_WIDTH),
+        .FIFO_DEPTH (DMA_TQ_DEPTH)
+    ) u_stream_fifo_dmard_tasks (
+        .ACLK    (clk                                                                                    ),
+        .ARESETn (rst_n                                                                                  ),
+
+        .data_i  ({dma_task_write_i, dma_task_channel_i, dma_task_burst_i, dma_task_offset_i}            ),
+        .valid_i (dma_task_valid_i & ~dma_task_write_i                                                   ),
+        .ready_o (dmard_task_ready                                                                       ),
+        .free_o  (dmard_task_free_o                                                                      ),
+
+        .data_o  ({dmard_task_write_rd, dmard_task_channel_rd, dmard_task_burst_rd, dmard_task_offset_rd}),
+        .valid_o (dmard_task_valid_rd                                                                    ),
+        .ready_i (dmard_task_ready_rd                                                                    ),
+        .count_o (                                                                                       ) // NC
+    );
+    
+    // Skid
+    stream_fifo #(
+        .DATA_WIDTH (1 + DMA_CHANNEL_COUNT_WIDTH + DMA_BURST_WIDTH + DMA_OFFFSET_WIDTH),
+        .FIFO_DEPTH (1)
+    ) u_stream_fifo_dmard_skid (
+        .ACLK    (clk                                                                                    ),
+        .ARESETn (rst_n                                                                                  ),
+
+        .data_i  ({dmard_task_write_rd, dmard_task_channel_rd, dmard_task_burst_rd, dmard_task_offset_rd}),
+        .valid_i (dmard_task_valid_rd                                                                    ),
+        .ready_o (dmard_task_ready_rd                                                                    ),
+        .free_o  (                                                                                       ),
+
+        .data_o  ({dmard_task_write_sk, dmard_task_channel_sk, dmard_task_burst_sk, dmard_task_offset_sk}),
+        .valid_o (dmard_task_valid_sk                                                                    ),
+        .ready_i (dmard_task_ready_sk                                                                    ),
+        .count_o (                                                                                       ) // NC
+    );
+
+    kdma_task_demux #(
+        .DMA_CHANNEL_COUNT (DMA_CHANNEL_COUNT),
+        .DMA_OFFFSET_WIDTH (DMA_OFFFSET_WIDTH),
+        .DMA_BYTES_WIDTH   (DMA_BYTES_WIDTH  ),
+
+        .DMA_WQ_DEPTH      (DMA_WQ_DEPTH     ),
+        .DMA_RQ_DEPTH      (DMA_RQ_DEPTH     )
+    ) u_kdmard_task_demux (
+        .clk                   (clk                  ),
+        .rst_n                 (rst_n                ),
+
+        .in_dma_task_valid_i   (dmard_task_valid_sk  ),
+        .in_dma_task_ready_o   (dmard_task_ready_sk  ),
+        .in_dma_task_channel_i (dmard_task_channel_sk),
+        .in_dma_task_burst_i   (dmard_task_burst_sk  ),
+        .in_dma_task_offset_i  (dmard_task_offset_sk ),
+        .in_dma_task_write_i   (dmard_task_write_sk  ),
+
+        .out_dma_task_valid_o  (dmard_task_valid_o   ),
+        .out_dma_task_ready_i  (dmard_task_ready_i   ),
+        .out_dma_task_burst_o  (dmard_task_burst_o   ),
+        .out_dma_task_offset_o (dmard_task_offset_o  ),
+        .out_dma_task_write_o  (dmard_task_write_o   ),
+        .out_dma_task_init_o   (dmard_task_init_o    )
+    );
+    
+endmodule

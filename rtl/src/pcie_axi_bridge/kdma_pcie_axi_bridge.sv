@@ -68,7 +68,7 @@ module kdma_pcie_axi_bridge #(
     input  logic [DMA_CHANNEL_COUNT-1:0] bready_i                             ,
     output logic [AXI_ID_WIDTH-1:0]      bid_o             [DMA_CHANNEL_COUNT],
     output logic [1:0]                   bresp_o           [DMA_CHANNEL_COUNT],
-    
+
     input  logic                         msix_awvalid_i                       ,
     output logic                         msix_awready_o                       ,
     input  logic [63:0]                  msix_awaddr_i                        ,

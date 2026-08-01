@@ -1,14 +1,14 @@
 import kdma_csr_am_pkg::*;
 
 module kdma_csr_flatten #(
-    parameter     DMA_CHANNEL_COUNT                = 8         ,
+    parameter     DMA_CHANNEL_COUNT                     = 8         ,
 
-    parameter int DMA_WQ_DEPTH [DMA_CHANNEL_COUNT] = '{8{1024}},
-    parameter int DMA_RQ_DEPTH [DMA_CHANNEL_COUNT] = '{8{1024}},
-    parameter     DMA_TQ_DEPTH                     = 8         ,
+    parameter int DMA_WQ_DEPTH      [DMA_CHANNEL_COUNT] = '{8{1024}},
+    parameter int DMA_RQ_DEPTH      [DMA_CHANNEL_COUNT] = '{8{1024}},
+    parameter     DMA_TQ_DEPTH                          = 8         ,
 
-    parameter     MAX_WQ_DEPTH                     = 1024      ,
-    parameter     MAX_RQ_DEPTH                     = 1024      ,
+    parameter     MAX_WQ_DEPTH                          = 1024      ,
+    parameter     MAX_RQ_DEPTH                          = 1024      ,
 
     parameter DMA_WQ_ADDR_WIDTH = $clog2(MAX_WQ_DEPTH),
     parameter DMA_RQ_ADDR_WIDTH = $clog2(MAX_RQ_DEPTH),
@@ -61,7 +61,7 @@ always_comb begin
 end
 
 always_comb begin
-    dma_reset_o = hwif_out.GLOBAL_REG.DMA_RESET.value;
+    dma_reset_o = ~hwif_out.GLOBAL_REG.DMA_RESET.value;
     
 
     hwif_in.GLOBAL_REG.STRUCT_0_PTR.next      = 'h40             ;
