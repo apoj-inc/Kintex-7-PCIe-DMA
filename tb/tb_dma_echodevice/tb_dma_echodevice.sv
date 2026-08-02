@@ -470,7 +470,7 @@ initial begin
         csr_access (
             .write  ('1),
             .addr   (apb_rdata),
-            .wdata  ((48'hF000_0000_0000 + i * 'h4) << 32),
+            .wdata  ((48'hF000_0000_0000 + i * 'h10) << 32),
             .strobe (16'h0FF0),
             .rdata  (devnull)
         );

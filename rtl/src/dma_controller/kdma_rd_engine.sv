@@ -49,7 +49,7 @@ module kdma_rd_engine #(
     input  logic                         rd_irq_clr_i      
 );
 
-    assign arburst_o = 2'b10 ;
+    assign arburst_o = 2'b01 ;
     assign arsize_o  = 3'b100;
 
     typedef enum logic [2:0] {
@@ -175,7 +175,7 @@ module kdma_rd_engine #(
 
                     dmard_descriptor_next.words_outstanding = dmard_descriptor.words_outstanding + dmard_descriptor.curr_burst;
                     dmard_descriptor_next.words_left        = dmard_descriptor.words_left - (dmard_descriptor.curr_burst + 1);
-                    dmard_descriptor_next.curr_addr         = dmard_descriptor.curr_addr + (dmard_descriptor.curr_burst << 4);
+                    dmard_descriptor_next.curr_addr         = dmard_descriptor.curr_addr + ((dmard_descriptor.curr_burst + 1) << 4);
                     dmard_descriptor_next.curr_burst        = ((dmard_descriptor.words_left - dmard_descriptor.curr_burst - 2) > R_BURST_COMPARATOR) ?
                                                             R_BURST_COMPARATOR : dmard_descriptor.words_left - dmard_descriptor.curr_burst - 2;
                 end

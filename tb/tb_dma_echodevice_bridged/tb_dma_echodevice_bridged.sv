@@ -87,21 +87,97 @@ always #4 clk = ~clk;
 
 logic test_done;
 
+header_dw0_t             hdw0, hdw0_event, hdw0_in, hdw0_out;
+memory_request_3dw_12_t  mr3d, mr3d_event, mr3d_in, mr3d_out;
+memory_request_4dw_123_t mr4d, mr4d_event, mr4d_in, mr4d_out;
+cpl_3dw_12_t             cpl3, cpl3_event, cpl3_in, cpl3_out;
+
+logic [128+5+5+8 - 1:0] pcie_data_queue [$];
+
+always_ff @(posedge clk or negedge rst_n) begin
+    if (!rst_n) begin
+        pcie_ready_i <= '0;
+    end
+    else begin
+        pcie_ready_i <= $urandom();
+    end
+end
+
+always_ff @(posedge clk or negedge rst_n) begin
+    if (!rst_n) begin
+        pcie_valid_i <= '0;
+    end
+    else begin
+        pcie_valid_i <= pcie_data_queue.size() ?
+                        (pcie_valid_i && ~pcie_ready_o) ? '1 : $urandom()
+                        : '0;
+        if (pcie_valid_i && pcie_ready_o) begin
+            pcie_data_queue.pop_front();
+        end
+    end
+end
+
+always_comb begin
+    {pcie_data_i, pcie_sof_i, pcie_eof_i, pcie_bar_hit_i} = pcie_data_queue[0];
+end
+
+assign hdw0_out = pcie_data_o[31:0];
+assign mr3d_out = pcie_data_o[95:32];
+assign mr4d_out = pcie_data_o[127:32];
+assign cpl3_out = pcie_data_o[95:32];
+
+assign hdw0_in = pcie_data_i[31:0];
+assign mr3d_in = pcie_data_i[95:32];
+assign mr4d_in = pcie_data_i[127:32];
+assign cpl3_in = pcie_data_i[95:32];
+
+assign mr3d.req_id = 'hBEEF;
+assign mr4d.req_id = 'hBEEF;
+
 initial begin
     test_done = '0;
     clk = 0;
     #2;
     rst_n = 0;
-    pcie_ready_i = 1;
-    pcie_valid_i = 0;
     user_irq_i = '0;
 
     @(posedge clk);
     @(posedge clk);
     rst_n = 1;
     @(posedge clk);
+
+    repeat (1000) @(posedge clk);
     
     test_done = '1;
+end
+
+initial begin
+    {hdw0.rsvd_2, hdw0.rsvd_1, hdw0.rsvd_0, hdw0.qos, hdw0.digest, hdw0.err, hdw0.attr, hdw0.addr_tran} = '0;
+    {hdw0.fmt, hdw0.tp} = WR_32;
+    hdw0.length = 1;
+    
+    mr3d.addr = 'h9170000C >> 2;
+    mr3d.rsvd = '0;
+    mr3d.ldw_be = '0;
+    mr3d.fdw_be = '1;
+    mr3d.tag = $urandom();
+
+    pcie_data_queue.push_back({8'h1, 8'h0, 8'h0, 8'h0, mr3d, hdw0, 5'b10000, 5'b11111, 8'('b1100)});
+
+
+    {hdw0.rsvd_2, hdw0.rsvd_1, hdw0.rsvd_0, hdw0.qos, hdw0.digest, hdw0.err, hdw0.attr, hdw0.addr_tran} = '0;
+    {hdw0.fmt, hdw0.tp} = WR_32;
+    hdw0.length = 2;
+    
+    mr3d.addr = 'h91701008 >> 2;
+    mr3d.rsvd = '0;
+    mr3d.ldw_be = '0;
+    mr3d.fdw_be = '1;
+    mr3d.tag = $urandom();
+
+    pcie_data_queue.push_back({32'h0, mr3d, hdw0, 5'b10000, 5'b0000, 8'('b1100)});
+
+    pcie_data_queue.push_back({96'h0, 8'b0, 8'b0100, 8'b0, 8'b0, 5'b00000, 5'b10011, 8'('b1100)});
 end
 
 endmodule

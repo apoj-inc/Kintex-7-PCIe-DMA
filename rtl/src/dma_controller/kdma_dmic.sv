@@ -50,7 +50,7 @@ module kdma_dmic #(
 
     assign msix_awlen_o   = '0;
     assign msix_awid_o    = '0;
-    assign msix_awburst_o = 2'b10;
+    assign msix_awburst_o = 2'b01;
     assign msix_awsize_o  = 3'b100;
 
     assign msix_wlast_o = '1;

@@ -213,24 +213,24 @@ logic [15:0]  dec_pstrb  ;
 logic [127:0] dec_prdata ;
 
 always_comb begin
-    csr_psel    = '0;
-    csr_penable = bar_penable;
-    csr_paddr   = bar_paddr  ;
-    csr_pwrite  = bar_pwrite ;
-    csr_pwdata  = bar_pwdata ;
-    csr_pstrb   = bar_pstrb  ;
+    csr_psel    = '0               ;
+    csr_penable = bar_penable      ;
+    csr_paddr   = bar_paddr  [11:0];
+    csr_pwrite  = bar_pwrite       ;
+    csr_pwdata  = bar_pwdata       ;
+    csr_pstrb   = bar_pstrb        ;
 
-    dec_psel    = '0;
-    dec_penable = bar_penable;
-    dec_paddr   = bar_paddr  ;
-    dec_pwrite  = bar_pwrite ;
-    dec_pwdata  = bar_pwdata ;
-    dec_pstrb   = bar_pstrb  ;
+    dec_psel    = '0               ;
+    dec_penable = bar_penable      ;
+    dec_paddr   = bar_paddr  [11:0];
+    dec_pwrite  = bar_pwrite       ;
+    dec_pwdata  = bar_pwdata       ;
+    dec_pstrb   = bar_pstrb        ;
 
     bar_pready[2] = '0;
     bar_prdata[2] = '0;
 
-    if (bar_paddr[2] < 'h1000) begin
+    if (bar_paddr[15:0] < 'h1000) begin
         csr_psel = bar_psel[2];
 
         bar_pready[2] = csr_pready;

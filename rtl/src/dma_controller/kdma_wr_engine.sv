@@ -54,7 +54,7 @@ module kdma_wr_engine #(
 );
 
     assign awid_o    = '0    ;
-    assign awburst_o = 2'b10 ;
+    assign awburst_o = 2'b01 ;
     assign awsize_o  = 3'b100;
 
     assign wstrb_o = '1;
