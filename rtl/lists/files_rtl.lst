@@ -4,6 +4,10 @@ rtl/gen/kdma_msix_am_pkg.sv
 rtl/gen/kdma_csr_am.sv
 rtl/gen/kdma_decoder_am.sv
 rtl/gen/kdma_msix_am.sv
+rtl/src/lib/hs_wrmhl_arbiter.sv
+rtl/src/lib/stream_arbiter.sv
+rtl/src/lib/stream_fifo.sv
+rtl/src/lib/apb4_intf.sv
 rtl/src/dma_controller/kdma_csr_flatten.sv
 rtl/src/dma_controller/kdma_decoder_flatten.sv
 rtl/src/dma_controller/kdma_decoder.sv
@@ -14,7 +18,6 @@ rtl/src/dma_controller/kdma_task_demux.sv
 rtl/src/dma_controller/kdma_task_transport.sv
 rtl/src/dma_controller/kdma_top.sv
 rtl/src/dma_controller/kdma_wr_engine.sv
-rtl/src/example/kdma_echodevice.sv
 rtl/src/pcie_axi_bridge/kdma_pcie_headers_pkg.sv
 rtl/src/pcie_axi_bridge/kdma_pcie_destraddle.sv
 rtl/src/pcie_axi_bridge/kdma_pcie_header_detacher.sv
@@ -26,7 +29,5 @@ rtl/src/pcie_axi_bridge/kdma_dmard_ctrl.sv
 rtl/src/pcie_axi_bridge/kdma_dmawr_sink.sv
 rtl/src/pcie_axi_bridge/kdma_msix_bridge.sv
 rtl/src/pcie_axi_bridge/kdma_pcie_axi_bridge.sv
-rtl/src/lib/hs_wrmhl_arbiter.sv
-rtl/src/lib/stream_arbiter.sv
-rtl/src/lib/stream_fifo.sv
-rtl/src/lib/apb4_intf.sv
+rtl/src/example/kdma_echodevice.sv
+rtl/src/example/kdma_echodevice_bridged.sv

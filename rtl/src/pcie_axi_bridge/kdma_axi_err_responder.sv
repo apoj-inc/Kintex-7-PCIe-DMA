@@ -1,21 +1,20 @@
 module kdma_axi_err_responder #(
-    parameter AXI_DATA_WIDTH = 128,
     parameter AXI_ID_WIDTH   = 4  
 ) (
-    input  logic                         clk        ,
-    input  logic                         rst_n      ,
+    input  logic                    clk        ,
+    input  logic                    rst_n      ,
 
-    input  logic                         err_valid_i,
-    output logic                         err_ready_o,
-    input  logic [AXI_ID_WIDTH-1:0]      err_id_i   ,
-    input  logic [7:0]                   err_len_i  ,
+    input  logic                    err_valid_i,
+    output logic                    err_ready_o,
+    input  logic [AXI_ID_WIDTH-1:0] err_id_i   ,
+    input  logic [7:0]              err_len_i  ,
 
-    output logic                         rvalid_o   ,
-    input  logic                         rready_i   ,
-    output logic [AXI_DATA_WIDTH-1:0]    rdata_o    ,
-    output logic                         rlast_o    ,
-    output logic [1:0]                   rresp_o    ,
-    output logic [AXI_ID_WIDTH-1:0]      rid_o      
+    output logic                    rvalid_o   ,
+    input  logic                    rready_i   ,
+    output logic [127:0]            rdata_o    ,
+    output logic                    rlast_o    ,
+    output logic [1:0]              rresp_o    ,
+    output logic [AXI_ID_WIDTH-1:0] rid_o      
 );
 
     logic [7:0] count;

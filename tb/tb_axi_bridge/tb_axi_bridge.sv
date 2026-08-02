@@ -7,9 +7,6 @@ parameter BAR_COUNT         = 4;
 parameter DMA_CHANNEL_COUNT = 8;
 parameter PIPELINE_CAPACITY = 4;
 
-parameter AXI_ADDR_WIDTH    = 64 ;
-parameter AXI_DATA_WIDTH    = 128;
-
 parameter TOTAL_ID_COUNT = DMA_CHANNEL_COUNT * PIPELINE_CAPACITY                 ;
 parameter AXI_ID_WIDTH   = PIPELINE_CAPACITY == 1 ? 1 : $clog2(PIPELINE_CAPACITY);
 
@@ -36,69 +33,69 @@ semaphore pcie_data_lock;
 logic [128+5+5+8 - 1:0] pcie_data_queue [$];
 logic reg_acc_test_done;
 
-logic                         clk                                  ;
-logic                         rst_n                                ;
+logic                    clk                                  ;
+logic                    rst_n                                ;
 
-logic                         pcie_valid_i                         ;
-logic                         pcie_ready_o                         ;
-logic [127:0]                 pcie_data_i                          ;
-logic [4:0]                   pcie_sof_i                           ;
-logic [4:0]                   pcie_eof_i                           ;
-logic [7:0]                   pcie_bar_hit_i                       ;
+logic                    pcie_valid_i                         ;
+logic                    pcie_ready_o                         ;
+logic [127:0]            pcie_data_i                          ;
+logic [4:0]              pcie_sof_i                           ;
+logic [4:0]              pcie_eof_i                           ;
+logic [7:0]              pcie_bar_hit_i                       ;
 
-logic                         pcie_valid_o                         ;
-logic                         pcie_ready_i                         ;
-logic [127:0]                 pcie_data_o                          ;
-logic [15:0]                  pcie_tkeep_o                         ;
-logic                         pcie_tlast_o                         ;
+logic                    pcie_valid_o                         ;
+logic                    pcie_ready_i                         ;
+logic [127:0]            pcie_data_o                          ;
+logic [15:0]             pcie_tkeep_o                         ;
+logic                    pcie_tlast_o                         ;
 
-logic [BAR_COUNT-1:0]         bar_psel_o                           ;
-logic                         bar_penable_o                        ;
-logic [BAR_COUNT-1:0]         bar_pready_i                         ;
-logic [63:0]                  bar_paddr_o                          ;
-logic                         bar_pwrite_o                         ;
-logic [127:0]                 bar_pwdata_o                         ;
-logic [15:0]                  bar_pstrb_o                          ;
-logic [127:0]                 bar_prdata_i      [BAR_COUNT]        ;
+logic [BAR_COUNT-1:0]    bar_psel_o                           ;
+logic                    bar_penable_o                        ;
+logic [BAR_COUNT-1:0]    bar_pready_i                         ;
+logic [63:0]             bar_paddr_o                          ;
+logic                    bar_pwrite_o                         ;
+logic [127:0]            bar_pwdata_o                         ;
+logic [15:0]             bar_pstrb_o                          ;
+logic [127:0]            bar_prdata_i      [BAR_COUNT]        ;
 
-logic                         arvalid           [DMA_CHANNEL_COUNT];
-logic                         arready           [DMA_CHANNEL_COUNT];
-logic [AXI_ADDR_WIDTH-1:0]    araddr            [DMA_CHANNEL_COUNT];
-logic [7:0]                   arlen             [DMA_CHANNEL_COUNT];
-logic [AXI_ID_WIDTH-1:0]      arid              [DMA_CHANNEL_COUNT];
-logic [1:0]                   arburst           [DMA_CHANNEL_COUNT];
-logic [2:0]                   arsize            [DMA_CHANNEL_COUNT];
+logic                    arvalid           [DMA_CHANNEL_COUNT];
+logic                    arready           [DMA_CHANNEL_COUNT];
+logic [63:0]             araddr            [DMA_CHANNEL_COUNT];
+logic [7:0]              arlen             [DMA_CHANNEL_COUNT];
+logic [AXI_ID_WIDTH-1:0] arid              [DMA_CHANNEL_COUNT];
+logic [1:0]              arburst           [DMA_CHANNEL_COUNT];
+logic [2:0]              arsize            [DMA_CHANNEL_COUNT];
 
-logic                         rvalid            [DMA_CHANNEL_COUNT];
-logic                         rready            [DMA_CHANNEL_COUNT];
-logic [AXI_DATA_WIDTH-1:0]    rdata             [DMA_CHANNEL_COUNT];
-logic                         rlast             [DMA_CHANNEL_COUNT];
-logic [1:0]                   rresp             [DMA_CHANNEL_COUNT];
-logic [AXI_ID_WIDTH-1:0]      rid               [DMA_CHANNEL_COUNT];
+logic                    rvalid            [DMA_CHANNEL_COUNT];
+logic                    rready            [DMA_CHANNEL_COUNT];
+logic [127:0]            rdata             [DMA_CHANNEL_COUNT];
+logic                    rlast             [DMA_CHANNEL_COUNT];
+logic [1:0]              rresp             [DMA_CHANNEL_COUNT];
+logic [AXI_ID_WIDTH-1:0] rid               [DMA_CHANNEL_COUNT];
 
-logic                         awvalid           [DMA_CHANNEL_COUNT];
-logic                         awready           [DMA_CHANNEL_COUNT];
-logic [63:0]                  awaddr            [DMA_CHANNEL_COUNT];
-logic [7:0]                   awlen             [DMA_CHANNEL_COUNT];
-logic [AXI_ID_WIDTH-1:0]      awid              [DMA_CHANNEL_COUNT];
-logic [1:0]                   awburst           [DMA_CHANNEL_COUNT];
-logic [2:0]                   awsize            [DMA_CHANNEL_COUNT];
+logic                    awvalid           [DMA_CHANNEL_COUNT];
+logic                    awready           [DMA_CHANNEL_COUNT];
+logic [63:0]             awaddr            [DMA_CHANNEL_COUNT];
+logic [7:0]              awlen             [DMA_CHANNEL_COUNT];
+logic [AXI_ID_WIDTH-1:0] awid              [DMA_CHANNEL_COUNT];
+logic [1:0]              awburst           [DMA_CHANNEL_COUNT];
+logic [2:0]              awsize            [DMA_CHANNEL_COUNT];
 
-logic                         wvalid            [DMA_CHANNEL_COUNT];
-logic                         wready            [DMA_CHANNEL_COUNT];
-logic [127:0]                 wdata             [DMA_CHANNEL_COUNT];
-logic                         wlast             [DMA_CHANNEL_COUNT];
-logic [15:0]                  wstrb             [DMA_CHANNEL_COUNT];
+logic                    wvalid            [DMA_CHANNEL_COUNT];
+logic                    wready            [DMA_CHANNEL_COUNT];
+logic [127:0]            wdata             [DMA_CHANNEL_COUNT];
+logic                    wlast             [DMA_CHANNEL_COUNT];
+logic [15:0]             wstrb             [DMA_CHANNEL_COUNT];
 
-logic                         bvalid            [DMA_CHANNEL_COUNT];
-logic                         bready            [DMA_CHANNEL_COUNT];
-logic [AXI_ID_WIDTH-1:0]      bid               [DMA_CHANNEL_COUNT];
-logic [1:0]                   bresp             [DMA_CHANNEL_COUNT];
+logic                    bvalid            [DMA_CHANNEL_COUNT];
+logic                    bready            [DMA_CHANNEL_COUNT];
+logic [AXI_ID_WIDTH-1:0] bid               [DMA_CHANNEL_COUNT];
+logic [1:0]              bresp             [DMA_CHANNEL_COUNT];
 
 
 logic                      msix_arvalid ;
 logic                      msix_arready ;
-logic [AXI_ADDR_WIDTH-1:0] msix_araddr  ;
+logic [63:0]               msix_araddr  ;
 logic [7:0]                msix_arlen   ;
 logic [AXI_ID_WIDTH-1:0]   msix_arid    ;
 logic [1:0]                msix_arburst ;
@@ -106,7 +103,7 @@ logic [2:0]                msix_arsize  ;
 
 logic                      msix_rvalid  ;
 logic                      msix_rready  ;
-logic [AXI_DATA_WIDTH-1:0] msix_rdata   ;
+logic [127:0]              msix_rdata   ;
 logic                      msix_rlast   ;
 logic [1:0]                msix_rresp   ;
 logic [AXI_ID_WIDTH-1:0]   msix_rid     ;
@@ -348,10 +345,7 @@ kdma_pcie_axi_bridge #(
     .BAR_COUNT         (BAR_COUNT        ),
 
     .DMA_CHANNEL_COUNT (DMA_CHANNEL_COUNT),
-    .PIPELINE_CAPACITY (PIPELINE_CAPACITY),
-
-    .AXI_ADDR_WIDTH    (AXI_ADDR_WIDTH   ),
-    .AXI_DATA_WIDTH    (AXI_DATA_WIDTH   )
+    .PIPELINE_CAPACITY (PIPELINE_CAPACITY)
 ) dut (
     .clk               (clk              ),
     .rst_n             (rst_n            ),

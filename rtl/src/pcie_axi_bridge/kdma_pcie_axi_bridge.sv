@@ -4,9 +4,6 @@ module kdma_pcie_axi_bridge #(
     parameter DMA_CHANNEL_COUNT = 8  ,
     parameter PIPELINE_CAPACITY = 4  ,
 
-    parameter AXI_ADDR_WIDTH    = 64 ,
-    parameter AXI_DATA_WIDTH    = 128,
-
     parameter TOTAL_ID_COUNT = DMA_CHANNEL_COUNT * PIPELINE_CAPACITY                 ,
     parameter AXI_ID_WIDTH   = PIPELINE_CAPACITY == 1 ? 1 : $clog2(PIPELINE_CAPACITY)
 ) (
@@ -37,7 +34,7 @@ module kdma_pcie_axi_bridge #(
 
     input  logic [DMA_CHANNEL_COUNT-1:0] arvalid_i                            ,
     output logic [DMA_CHANNEL_COUNT-1:0] arready_o                            ,
-    input  logic [AXI_ADDR_WIDTH-1:0]    araddr_i          [DMA_CHANNEL_COUNT],
+    input  logic [63:0]                  araddr_i          [DMA_CHANNEL_COUNT],
     input  logic [7:0]                   arlen_i           [DMA_CHANNEL_COUNT],
     input  logic [AXI_ID_WIDTH-1:0]      arid_i            [DMA_CHANNEL_COUNT],
     input  logic [1:0]                   arburst_i         [DMA_CHANNEL_COUNT],
@@ -45,7 +42,7 @@ module kdma_pcie_axi_bridge #(
 
     output logic [DMA_CHANNEL_COUNT-1:0] rvalid_o                             ,
     input  logic [DMA_CHANNEL_COUNT-1:0] rready_i                             ,
-    output logic [AXI_DATA_WIDTH-1:0]    rdata_o           [DMA_CHANNEL_COUNT],
+    output logic [127:0]                 rdata_o           [DMA_CHANNEL_COUNT],
     output logic [DMA_CHANNEL_COUNT-1:0] rlast_o                              ,
     output logic [1:0]                   rresp_o           [DMA_CHANNEL_COUNT],
     output logic [AXI_ID_WIDTH-1:0]      rid_o             [DMA_CHANNEL_COUNT],
@@ -267,7 +264,6 @@ module kdma_pcie_axi_bridge #(
             end
 
             kdma_axi_err_responder #(
-                .AXI_DATA_WIDTH (AXI_DATA_WIDTH),
                 .AXI_ID_WIDTH   (AXI_ID_WIDTH  )
             ) u_kdma_axi_err_responder (
                 .clk         (clk          ),
