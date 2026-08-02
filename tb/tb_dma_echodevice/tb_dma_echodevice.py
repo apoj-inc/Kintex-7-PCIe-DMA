@@ -55,15 +55,6 @@ async def test(dut):
             for j in range(16384):
                 axi_ram[i].write_byte(0xF000_0000_0000 + i*0x4 + j, randint(0, 255))
         await RisingEdge(dut.check_mem)
-#        for i in range(dma_channel_count):
-#            bytecount = dut.bytecounts[i].value.to_unsigned()
-#            offset = dut.offsets[i].value.to_unsigned()
-#
-#            for j in range(bytecount):
-#                expected = axi_ram[i].read_byte(0xF000_0000_0000 + i*0x4 + offset + j)
-#                got = axi_ram[i].read_byte(0xF000_0000_0000 + i*0x4 + offset + j + 1024)
-#                print(f"exp {hex(expected)}, got {hex(got)}, {j%16}")
-#                assert expected == got, f"Channel {i}, bytecount {bytecount}, offset {offset}, failing {j}, exp {hex(expected)} @{hex(0xF000_0000_0000 + i*0x4 + offset + j)}, got {hex(got)} @{hex(0xF000_0000_0000 + i*0x4 + offset + j + 1024)}"
         dut.check_mem.value = 0
 
     task_awaiter = RisingEdge(dut.test_done)

@@ -225,6 +225,22 @@ logic bvalid  [DMA_CHANNEL_COUNT];
 logic bready  [DMA_CHANNEL_COUNT];
 
 generate
+    for (genvar i = 0; i < DMA_CHANNEL_COUNT; i++) begin : checker_queues
+        logic [127:0] axi_data [$];
+
+        always @(posedge clk) begin
+            if (wvalid[i] && wready[i]) begin
+                if (axi_data[0] == wdata[i]) begin
+                    axi_data.pop_front();
+                end
+            end
+
+            if (rready[i] && rvalid[i]) begin
+                axi_data.push_back(rdata[i]);
+            end
+        end
+    end
+
     for (genvar i = 0; i < DMA_CHANNEL_COUNT; i++) begin : repacking
         assign arvalid[i] = arvalid_pkd[i];
         assign rready [i] = rready_pkd [i];
@@ -555,5 +571,17 @@ initial begin
 
     test_done = 1;
 end
+
+generate
+    for (genvar i = 0; i < DMA_CHANNEL_COUNT; i++) begin
+        always @(posedge check_mem) begin
+            assert (checker_queues[i].axi_data.size == 0)
+            else begin
+                $display("Channel %d, %d dwords leftover", i, checker_queues[i].axi_data.size);
+                $finish;
+            end
+        end
+    end
+endgenerate
 
 endmodule
