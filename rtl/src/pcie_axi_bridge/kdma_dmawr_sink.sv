@@ -160,7 +160,7 @@ module kdma_dmawr_sink #(
                                 bresp_next = 2'b00;
 
                                 {hdw0.rsvd_2, hdw0.rsvd_1, hdw0.qos, hdw0.rsvd_0, hdw0.digest, hdw0.err, hdw0.attr, hdw0.addr_tran} = '0;
-                                hdw0.length = awlen_i[i] << 2;
+                                hdw0.length = (awlen_i[i] + 1) << 2;
 
                                 if (awaddr_i[i][63:32] == '0) begin
                                     {hdw0.fmt, hdw0.tp} = WR_32;
