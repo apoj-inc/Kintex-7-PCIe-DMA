@@ -87,11 +87,31 @@ always #4 clk = ~clk;
 
 semaphore pcie_data_lock;
 logic test_done;
+logic tlast_was;
 
 header_dw0_t             hdw0, hdw0_event, hdw0_in, hdw0_out;
 memory_request_3dw_12_t  mr3d, mr3d_event, mr3d_in, mr3d_out;
 memory_request_4dw_123_t mr4d, mr4d_event, mr4d_in, mr4d_out;
 cpl_3dw_12_t             cpl3, cpl3_event, cpl3_in, cpl3_out;
+
+logic [32:0] pcie_in_data_logger  [$];
+logic [32:0] pcie_out_data_logger [$];
+
+always @(posedge clk) begin
+    if (pcie_valid_i && pcie_ready_o) begin
+        pcie_in_data_logger.push_back({pcie_sof_i[4], pcie_data_i[0  +: 32]});
+        pcie_in_data_logger.push_back({1'b0         , pcie_data_i[32 +: 32]});
+        pcie_in_data_logger.push_back({1'b0         , pcie_data_i[64 +: 32]});
+        pcie_in_data_logger.push_back({1'b0         , pcie_data_i[96 +: 32]});
+    end
+
+    if (pcie_valid_o && pcie_ready_i) begin
+        pcie_out_data_logger.push_back({tlast_was, pcie_data_o[0  +: 32]});
+        pcie_out_data_logger.push_back({1'b0     , pcie_data_o[32 +: 32]});
+        pcie_out_data_logger.push_back({1'b0     , pcie_data_o[64 +: 32]});
+        pcie_out_data_logger.push_back({1'b0     , pcie_data_o[96 +: 32]});
+    end
+end
 
 logic [128+5+5+8 - 1:0] pcie_data_queue [$];
 
@@ -121,8 +141,6 @@ end
 always_comb begin
     {pcie_data_i, pcie_sof_i, pcie_eof_i, pcie_bar_hit_i} = pcie_data_queue[0];
 end
-
-logic tlast_was;
 
 always_ff @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
@@ -226,6 +244,14 @@ initial begin
     @(posedge clk);
 
     repeat (1000) @(posedge clk);
+
+    while (pcie_in_data_logger.size) begin
+        $display("%h", pcie_in_data_logger.pop_front());
+    end
+
+    while (pcie_out_data_logger.size) begin
+        $display("%h", pcie_out_data_logger.pop_front());
+    end
     
     test_done = '1;
 end
@@ -296,7 +322,7 @@ initial begin
     for (int i = 0; i < DMA_CHANNEL_COUNT*2; i++) begin
         pcie_reg_write(
             .address  (64'('h91700000 + i * 'h10)),
-            .data     (64'('hF000_0000_0000_0000 + i * 'h4)),
+            .data     (64'(('hF000_0000_0000_0000 >> (32 * (i%2))) + i * 'h4)),
             .write_64 ('1),
             .bar_hit  (4'b0011)
         );
@@ -324,6 +350,20 @@ initial begin
 
     pcie_reg_write(
         .address  (64'h91701000),
+        .data     (64'(('h400 << 32) | 32'h400)),
+        .write_64 ('1),
+        .bar_hit  (4'b1100)
+    );
+
+    pcie_reg_write(
+        .address  (64'h91701018),
+        .data     (64'(('h400 << 32) | 0)),
+        .write_64 ('1),
+        .bar_hit  (4'b1100)
+    );
+
+    pcie_reg_write(
+        .address  (64'h91701010),
         .data     (64'(('h400 << 32) | 32'h400)),
         .write_64 ('1),
         .bar_hit  (4'b1100)
