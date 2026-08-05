@@ -100,16 +100,28 @@ logic [32:0] pcie_out_data_logger [$];
 always @(posedge clk) begin
     if (pcie_valid_i && pcie_ready_o) begin
         pcie_in_data_logger.push_back({pcie_sof_i[4], pcie_data_i[0  +: 32]});
-        pcie_in_data_logger.push_back({1'b0         , pcie_data_i[32 +: 32]});
-        pcie_in_data_logger.push_back({1'b0         , pcie_data_i[64 +: 32]});
-        pcie_in_data_logger.push_back({1'b0         , pcie_data_i[96 +: 32]});
+        if (!pcie_eof_i[4] || (pcie_eof_i >= 5'b10111)) begin
+            pcie_in_data_logger.push_back({1'b0, pcie_data_i[32 +: 32]});
+        end
+        if (!pcie_eof_i[4] || (pcie_eof_i >= 5'b11011)) begin
+            pcie_in_data_logger.push_back({1'b0, pcie_data_i[64 +: 32]});
+        end
+        if (!pcie_eof_i[4] || (pcie_eof_i >= 5'b11111)) begin
+            pcie_in_data_logger.push_back({1'b0, pcie_data_i[96 +: 32]});
+        end
     end
 
     if (pcie_valid_o && pcie_ready_i) begin
         pcie_out_data_logger.push_back({tlast_was, pcie_data_o[0  +: 32]});
-        pcie_out_data_logger.push_back({1'b0     , pcie_data_o[32 +: 32]});
-        pcie_out_data_logger.push_back({1'b0     , pcie_data_o[64 +: 32]});
-        pcie_out_data_logger.push_back({1'b0     , pcie_data_o[96 +: 32]});
+        if (pcie_tkeep_o[7:4] == 4'hF) begin
+            pcie_out_data_logger.push_back({1'b0, pcie_data_o[32 +: 32]});
+        end
+        if (pcie_tkeep_o[11:8] == 4'hF) begin
+            pcie_out_data_logger.push_back({1'b0, pcie_data_o[64 +: 32]});
+        end
+        if (pcie_tkeep_o[15:12] == 4'hF) begin
+            pcie_out_data_logger.push_back({1'b0, pcie_data_o[96 +: 32]});
+        end
     end
 end
 
@@ -231,7 +243,10 @@ assign cpl3_in = pcie_data_i[95:32];
 assign mr3d.req_id = 'hBEEF;
 assign mr4d.req_id = 'hBEEF;
 
+logic check_queues;
+
 initial begin
+    check_queues = '0;
     test_done = '0;
     clk = 0;
     #2;
@@ -245,15 +260,95 @@ initial begin
 
     repeat (1000) @(posedge clk);
 
+    check_queues = '1;
+
+    #10;
+    
+    test_done = '1;
+end
+
+initial begin
+    logic [31:0] dmard_data [DMA_CHANNEL_COUNT][$];
+    logic [31:0] dmawr_data [DMA_CHANNEL_COUNT][$];
+
+    logic [32:0] word_buffer;
+    logic [31:0] channel;
+    
+    header_dw0_t             hdw0_checker;
+    memory_request_3dw_12_t  mr3d_checker;
+    memory_request_4dw_123_t mr4d_checker;
+    cpl_3dw_12_t             cpl3_checker;
+
+    @(posedge check_queues);
+
     while (pcie_in_data_logger.size) begin
-        $display("%h", pcie_in_data_logger.pop_front());
+        word_buffer = pcie_in_data_logger.pop_front();
+        hdw0_checker = word_buffer[31:0];
+
+        if ({hdw0_checker.fmt, hdw0_checker.tp} == CPLD) begin
+            word_buffer = pcie_in_data_logger.pop_front();
+            cpl3_checker[31:0] = word_buffer[31:0];
+
+            word_buffer = pcie_in_data_logger.pop_front();
+            cpl3_checker[63:32] = word_buffer[31:0];
+
+            channel = cpl3_checker.tag[7:AXI_ID_WIDTH];
+
+            while (pcie_in_data_logger.size && (pcie_in_data_logger[0][32] == '0)) begin
+                word_buffer = pcie_in_data_logger.pop_front();
+                dmard_data[channel].push_back(word_buffer[31:0]);
+            end
+        end
+        else begin
+            while (pcie_in_data_logger.size && pcie_in_data_logger[0][32] == '0) begin
+                word_buffer = pcie_in_data_logger.pop_front();
+            end
+        end
     end
 
     while (pcie_out_data_logger.size) begin
-        $display("%h", pcie_out_data_logger.pop_front());
+        word_buffer = pcie_out_data_logger.pop_front();
+        hdw0_checker = word_buffer[31:0];
+
+        if (({hdw0_checker.fmt, hdw0_checker.tp} == WR_32 || {hdw0_checker.fmt, hdw0_checker.tp} == WR_64) && hdw0_checker.length != 1) begin
+            word_buffer = pcie_out_data_logger.pop_front();
+            mr3d_checker[31:0] = word_buffer[31:0];
+
+            word_buffer = pcie_out_data_logger.pop_front();
+            mr3d_checker[63:32] = word_buffer[31:0];
+
+            if ({hdw0_checker.fmt, hdw0_checker.tp} == WR_64) begin
+                word_buffer = pcie_out_data_logger.pop_front();
+                mr4d_checker = {word_buffer, mr3d_checker};
+                
+                channel = mr4d_checker.addr_lo[29:(12 - 2)];
+                $display("%h", mr4d_checker);
+            end
+            else begin
+                channel = mr3d_checker.addr[29:(12 - 2)];
+                $display("%h", mr3d_checker);
+            end
+
+            while (pcie_out_data_logger.size && (pcie_out_data_logger[0][32] == '0)) begin
+                word_buffer = pcie_out_data_logger.pop_front();
+                dmawr_data[channel].push_back(word_buffer[31:0]);
+            end
+        end
+        else begin
+            while (pcie_out_data_logger.size && pcie_out_data_logger[0][32] == '0) begin
+                word_buffer = pcie_out_data_logger.pop_front();
+            end
+        end
     end
-    
-    test_done = '1;
+
+    for (int i = 0; i < DMA_CHANNEL_COUNT; i++) begin
+        $display("Checking channel %d...", i);
+        while (dmard_data[i].size) begin
+            assert (dmard_data[i].pop_front() == dmawr_data[i].pop_front())
+            else $display("Error");
+        end
+        $display("Success!");
+    end
 end
 
 task automatic pcie_reg_write(
