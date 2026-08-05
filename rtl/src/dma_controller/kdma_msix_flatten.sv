@@ -17,7 +17,7 @@ module kdma_msix_flatten #(
     input  logic [127:0] bar_pwdata_i                       ,
     input  logic [15:0]  bar_pstrb_i                        ,
     output logic [127:0] bar_prdata_o                       ,
-    
+
     output logic [31:0]  dma_msix_mask_o   [DMA_MSIX_COUNT] ,
     output logic [31:0]  dma_msix_data_o   [DMA_MSIX_COUNT] ,
     output logic [63:0]  dma_msix_addrs_o  [DMA_MSIX_COUNT] ,
