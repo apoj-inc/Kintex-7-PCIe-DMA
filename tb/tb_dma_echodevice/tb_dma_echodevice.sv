@@ -440,7 +440,7 @@ initial begin
     csr_access (
         .write  ('1),
         .addr   ('0),
-        .wdata  (1 << 96),
+        .wdata  ('0),
         .strobe (16'hF000),
         .rdata  (devnull)
     );

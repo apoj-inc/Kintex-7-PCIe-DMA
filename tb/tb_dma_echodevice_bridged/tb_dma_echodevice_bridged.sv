@@ -322,11 +322,9 @@ initial begin
                 mr4d_checker = {word_buffer, mr3d_checker};
                 
                 channel = mr4d_checker.addr_lo[29:(12 - 2)];
-                $display("%h", mr4d_checker);
             end
             else begin
                 channel = mr3d_checker.addr[29:(12 - 2)];
-                $display("%h", mr3d_checker);
             end
 
             while (pcie_out_data_logger.size && (pcie_out_data_logger[0][32] == '0)) begin
@@ -402,14 +400,14 @@ initial begin
 
     pcie_reg_write(
         .address  (64'h9170000C),
-        .data     (64'h1),
+        .data     (64'h0),
         .write_64 ('0),
         .bar_hit  (4'b1100)
     );
 
     pcie_reg_write(
         .address  (64'h99170000C),
-        .data     (64'h1),
+        .data     (64'h0),
         .write_64 ('0),
         .bar_hit  (4'b1100)
     );
