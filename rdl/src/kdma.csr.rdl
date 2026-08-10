@@ -26,6 +26,7 @@ addrmap kdma_csr_am #(
             sw   = rw;
 
             singlepulse;
+            onwrite=wzs & woset;
         } DMA_RESET [96:96] = 0x0;
 
         field {

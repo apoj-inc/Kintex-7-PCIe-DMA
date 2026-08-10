@@ -184,8 +184,8 @@ module kdma_csr_am (
         automatic logic load_next_c;
         next_c = field_storage.GLOBAL_REG.DMA_RESET.value;
         load_next_c = '0;
-        if(decoded_reg_strb.GLOBAL_REG && decoded_req_is_wr) begin // SW write
-            next_c = (field_storage.GLOBAL_REG.DMA_RESET.value & ~decoded_wr_biten[96:96]) | (decoded_wr_data[96:96] & decoded_wr_biten[96:96]);
+        if(decoded_reg_strb.GLOBAL_REG && decoded_req_is_wr) begin // SW write 0 set
+            next_c = field_storage.GLOBAL_REG.DMA_RESET.value | (~decoded_wr_data[96:96] & decoded_wr_biten[96:96]);
             load_next_c = '1;
         end else begin // singlepulse clears back to 0
             next_c = '0;
