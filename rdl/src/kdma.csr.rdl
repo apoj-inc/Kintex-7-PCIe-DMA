@@ -22,12 +22,9 @@ addrmap kdma_csr_am #(
 
         field {
             desc = "KDMA channel count";
-            hw   = r;
+            hw   = rw;
             sw   = rw;
-
-            singlepulse;
-            onwrite=wzs & woset;
-        } DMA_RESET [96:96] = 0x0;
+        } DMA_RESET [96:96] = 0x1;
 
         field {
             desc = "KDMA channel count";

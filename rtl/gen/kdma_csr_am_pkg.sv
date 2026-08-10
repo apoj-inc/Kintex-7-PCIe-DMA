@@ -26,10 +26,15 @@ package kdma_csr_am_pkg;
     } kdma_csr_am__global_r__DMARD_TASK_FREE__in_t;
 
     typedef struct {
+        logic next;
+    } kdma_csr_am__global_r__DMA_RESET__in_t;
+
+    typedef struct {
         kdma_csr_am__global_r__DMA_CHANNEL_COUNT__in_t DMA_CHANNEL_COUNT;
         kdma_csr_am__global_r__STRUCT_0_PTR__in_t STRUCT_0_PTR;
         kdma_csr_am__global_r__DMAWR_TASK_FREE__in_t DMAWR_TASK_FREE;
         kdma_csr_am__global_r__DMARD_TASK_FREE__in_t DMARD_TASK_FREE;
+        kdma_csr_am__global_r__DMA_RESET__in_t DMA_RESET;
     } kdma_csr_am__global_r__in_t;
 
     typedef struct {

@@ -184,11 +184,11 @@ module kdma_csr_am (
         automatic logic load_next_c;
         next_c = field_storage.GLOBAL_REG.DMA_RESET.value;
         load_next_c = '0;
-        if(decoded_reg_strb.GLOBAL_REG && decoded_req_is_wr) begin // SW write 0 set
-            next_c = field_storage.GLOBAL_REG.DMA_RESET.value | (~decoded_wr_data[96:96] & decoded_wr_biten[96:96]);
+        if(decoded_reg_strb.GLOBAL_REG && decoded_req_is_wr) begin // SW write
+            next_c = (field_storage.GLOBAL_REG.DMA_RESET.value & ~decoded_wr_biten[96:96]) | (decoded_wr_data[96:96] & decoded_wr_biten[96:96]);
             load_next_c = '1;
-        end else begin // singlepulse clears back to 0
-            next_c = '0;
+        end else begin // HW Write
+            next_c = hwif_in.GLOBAL_REG.DMA_RESET.next;
             load_next_c = '1;
         end
         field_combo.GLOBAL_REG.DMA_RESET.next = next_c;
@@ -196,7 +196,7 @@ module kdma_csr_am (
     end
     always_ff @(posedge clk or negedge arst_n) begin
         if(~arst_n) begin
-            field_storage.GLOBAL_REG.DMA_RESET.value <= 1'h0;
+            field_storage.GLOBAL_REG.DMA_RESET.value <= 1'h1;
         end else begin
             if(field_combo.GLOBAL_REG.DMA_RESET.load_next) begin
                 field_storage.GLOBAL_REG.DMA_RESET.value <= field_combo.GLOBAL_REG.DMA_RESET.next;
