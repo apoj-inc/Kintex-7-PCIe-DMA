@@ -64,13 +64,35 @@ module kdma_decoder #(
         end
     end
 
-    typedef enum logic[1:0] { 
+    typedef enum logic[1:0] {
+        RESET         ,
         IDLE          ,
         GENERATE_DMAWR,
         GENERATE_DMARD
     } state_t;
 
     state_t state, state_next;
+
+    ila_0 u_ila_dec_state (
+        .clk    (clk  ),
+
+        .probe0  ('0 ),
+        .probe1  ('0 ),
+        .probe2  ('0 ),
+        .probe3 (state),
+        .probe4  ('0 ),
+
+        .probe5  ('0 ),
+        .probe6  ('0 ),
+        .probe7  ('0 ),
+        .probe8  ('0 ),
+        .probe9  ('0 ),
+        .probe10 ('0 ),
+
+        .probe11 ('0 ),
+        .probe12 ('0 )
+    );
+
     logic [31:0] in_state_counter, in_state_counter_next;
 
     logic                               dma_task_valid  , dma_task_valid_next  ;
@@ -87,7 +109,7 @@ module kdma_decoder #(
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            state <= IDLE;
+            state <= RESET;
             in_state_counter <= '0;
 
             dma_task_valid   <= '0;
@@ -111,6 +133,9 @@ module kdma_decoder #(
         state_next = state;
 
         case (state)
+            RESET: begin
+                state_next = IDLE;
+            end
             IDLE: begin
                 if (btcnt_wr_swmod_ff & ofst_wr_swmod_ff) begin
                     state_next = GENERATE_DMAWR;
@@ -139,6 +164,8 @@ module kdma_decoder #(
         dma_task_write_next   = dma_task_write  ;
 
         case (state)
+            RESET  : begin
+            end
             IDLE: begin
                 if (btcnt_wr_swmod_ff & ofst_wr_swmod_ff) begin
                     dma_task_valid_next   = '1                             ;

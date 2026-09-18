@@ -174,7 +174,111 @@ module kdma_top #(
 
     assign dma_resetn_o = dma_resetn;
     assign irq_wires = {user_irq_i, dma_rd_irq_sts, dma_wr_irq_sts};
+/*
+    ila_1 u_ila_1_0 (
+        .clk     (clk          ),
+        .probe0  (csr_psel_i   ),
+        .probe1  (csr_penable_i),
+        .probe2  (csr_pready_o ),
+        .probe3  (csr_paddr_i  ),
+        .probe4  (csr_pwrite_i ),
+        .probe5  (csr_pwdata_i ),
+        .probe6  (csr_pstrb_i  ),
+        .probe7  (csr_prdata_o )
+    );
 
+    ila_1 u_ila_1_1 (
+        .clk     (clk           ),
+        .probe0  (msix_psel_i   ),
+        .probe1  (msix_penable_i),
+        .probe2  (msix_pready_o ),
+        .probe3  (msix_paddr_i  ),
+        .probe4  (msix_pwrite_i ),
+        .probe5  (msix_pwdata_i ),
+        .probe6  (msix_pstrb_i  ),
+        .probe7  (msix_prdata_o )
+    );
+
+    ila_1 u_ila_1_2 (
+        .clk     (clk          ),
+        .probe0  (dec_psel_i   ),
+        .probe1  (dec_penable_i),
+        .probe2  (dec_pready_o ),
+        .probe3  (dec_paddr_i  ),
+        .probe4  (dec_pwrite_i ),
+        .probe5  (dec_pwdata_i ),
+        .probe6  (dec_pstrb_i  ),
+        .probe7  (dec_prdata_o )
+    );
+
+    axi_ila u_axi_ila_ch0 (
+        .clk     (clk          ),
+
+        .probe0  (arvalid_o [0]),
+        .probe1  (arready_i [0]),
+        .probe2  (araddr_o  [0]),
+        .probe3  (arlen_o   [0]),
+        .probe4  (arid_o    [0]),
+        .probe5  (arburst_o [0]),
+        .probe6  (arsize_o  [0]),
+        .probe7  (rvalid_i  [0]),
+        .probe8  (rready_o  [0]),
+        .probe9  (rdata_i   [0]),
+        .probe10 (rlast_i   [0]),
+        .probe11 (rresp_i   [0]),
+        .probe12 (rid_i     [0]),
+        .probe13 (awvalid_o [0]),
+        .probe14 (awready_i [0]),
+        .probe15 (awaddr_o  [0]),
+        .probe16 (awlen_o   [0]),
+        .probe17 (awid_o    [0]),
+        .probe18 (awburst_o [0]),
+        .probe19 (awsize_o  [0]),
+        .probe20 (wvalid_o  [0]),
+        .probe21 (wready_i  [0]),
+        .probe22 (wdata_o   [0]),
+        .probe23 (wlast_o   [0]),
+        .probe24 (wstrb_o   [0]),
+        .probe25 (bvalid_i  [0]),
+        .probe26 (bready_o  [0]),
+        .probe27 (bid_i     [0]),
+        .probe28 (bresp_i   [0])
+    );
+
+    axi_ila u_axi_ila_msix (
+        .clk     (clk            ),
+
+        .probe0  ('0             ),
+        .probe1  ('0             ),
+        .probe2  ('0             ),
+        .probe3  ('0             ),
+        .probe4  ('0             ),
+        .probe5  ('0             ),
+        .probe6  ('0             ),
+        .probe7  ('0             ),
+        .probe8  ('0             ),
+        .probe9  ('0             ),
+        .probe10 ('0             ),
+        .probe11 ('0             ),
+        .probe12 ('0             ),
+        .probe13 (msix_awvalid_o ),
+        .probe14 (msix_awready_i ),
+        .probe15 (msix_awaddr_o  ),
+        .probe16 (msix_awlen_o   ),
+        .probe17 (msix_awid_o    ),
+        .probe18 (msix_awburst_o ),
+        .probe19 (msix_awsize_o  ),
+        .probe20 (msix_wvalid_o  ),
+        .probe21 (msix_wready_i  ),
+        .probe22 (msix_wdata_o   ),
+        .probe23 (msix_wlast_o   ),
+        .probe24 (msix_wstrb_o   ),
+        .probe25 (msix_bvalid_i  ),
+        .probe26 (msix_bready_o  ),
+        .probe27 (msix_bid_i     ),
+        .probe28 (msix_bresp_i   )
+    );
+*/
     kdma_csr_flatten #(
         .DMA_CHANNEL_COUNT (DMA_CHANNEL_COUNT),
 

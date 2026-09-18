@@ -38,7 +38,8 @@ module kdma_msix_bridge #(
     input  logic [2:0]              function_number_i
 );
 
-    typedef enum logic [1:0] {
+    typedef enum logic [2:0] {
+        RESET   ,
         IDLE    ,
         DATA    ,
         MSIX    ,
@@ -65,7 +66,7 @@ module kdma_msix_bridge #(
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            state <= IDLE;
+            state <= RESET;
 
             bid <= '0;
 
@@ -96,6 +97,9 @@ module kdma_msix_bridge #(
         state_next = state;
 
         case (state)
+            RESET   : begin
+                state_next = IDLE;
+            end
             IDLE    : begin
                 if (msix_awvalid_i && msix_awready_o) begin
                     if (msix_awlen_i == 0) begin
@@ -172,6 +176,8 @@ module kdma_msix_bridge #(
         data_next    = data   ;
 
         case (state)
+            RESET   : begin
+            end
             IDLE    : begin
                 msix_awready_o = '1;
 

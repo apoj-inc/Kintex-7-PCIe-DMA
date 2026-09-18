@@ -45,7 +45,21 @@ module kdma_pcie_tlp_decoder #(
     output logic                      error_o                          
 );
 
+/*
+    ila_1 u_ila_1_0 (
+        .clk     (clk          ),
+        .probe0  (bar_psel_o   ),
+        .probe1  (bar_penable_o),
+        .probe2  (bar_pready_i ),
+        .probe3  (bar_paddr_o  ),
+        .probe4  (bar_pwrite_o ),
+        .probe5  (bar_pwdata_o ),
+        .probe6  (bar_pstrb_o  ),
+        .probe7  ('0           )
+    );
+*/
     typedef enum logic[2:0] {
+        RESET       ,
         AWAIT_HEADER,
         UNSUPPORTED ,
         ABORT       ,
@@ -56,6 +70,26 @@ module kdma_pcie_tlp_decoder #(
     } state_t;
 
     state_t state, state_next;
+
+    ila_0 u_ila_tlp_state (
+        .clk    (clk  ),
+
+        .probe0  ('0 ),
+        .probe1  ('0 ),
+        .probe2  ('0 ),
+        .probe3 (state),
+        .probe4  ('0 ),
+
+        .probe5  ('0 ),
+        .probe6  ('0 ),
+        .probe7  ('0 ),
+        .probe8  ('0 ),
+        .probe9  ('0 ),
+        .probe10 ('0 ),
+
+        .probe11 ('0 ),
+        .probe12 ('0 )
+    );
 
     logic [31:0]  cnt, cnt_next;
 
@@ -117,7 +151,7 @@ module kdma_pcie_tlp_decoder #(
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            state <= AWAIT_HEADER;
+            state <= RESET;
 
             cnt <= '0;
 
@@ -172,6 +206,9 @@ module kdma_pcie_tlp_decoder #(
         state_next = state;
 
         case (state)
+            RESET       : begin
+                state_next = AWAIT_HEADER;
+            end
             AWAIT_HEADER: begin
                 if (pcie_detach_valid_i && pcie_detach_ready_o) begin
                     if (pcie_detach_header_i) begin
@@ -303,8 +340,11 @@ module kdma_pcie_tlp_decoder #(
         cpl_3dw_12_outb = '0;
 
         case (state)
+            RESET       : begin
+            end
             AWAIT_HEADER: begin
                 pcie_detach_ready_o = '1;
+                bar_pwrite_next = '0;
 
                 if (pcie_detach_valid_i && pcie_detach_ready_o) begin
                     if (pcie_detach_header_i) begin

@@ -53,6 +53,7 @@ module kdma_rd_engine #(
     assign arsize_o  = 3'b100;
 
     typedef enum logic [2:0] {
+        RESET  ,
         IDLE   ,
         AR     ,
         R      ,
@@ -68,6 +69,60 @@ module kdma_rd_engine #(
     } dmard_descriptor_t;
     
     state_t state, state_next;
+
+    ila_0 u_ila_rd_state (
+        .clk    (clk  ),
+
+        .probe0  ('0                         ),
+        .probe1  ('0                         ),
+        .probe2  (dmard_descriptor.words_left),
+        .probe3  (state                      ),
+        .probe4  ('0                         ),
+
+        .probe5  ('0                         ),
+        .probe6  ('0                         ),
+        .probe7  ('0                         ),
+        .probe8  ('0                         ),
+        .probe9  ('0                         ),
+        .probe10 ('0                         ),
+
+        .probe11 ('0                         ),
+        .probe12 ('0                         )
+    );
+
+    axi_ila u_axi_ila_ch0 (
+        .clk     (clk      ),
+
+        .probe0  (arvalid_o),
+        .probe1  (arready_i),
+        .probe2  (araddr_o ),
+        .probe3  (arlen_o  ),
+        .probe4  (arid_o   ),
+        .probe5  (arburst_o),
+        .probe6  (arsize_o ),
+        .probe7  (rvalid_i ),
+        .probe8  (rready_o ),
+        .probe9  (rdata_i  ),
+        .probe10 (rlast_i  ),
+        .probe11 (rresp_i  ),
+        .probe12 (rid_i    ),
+        .probe13 ('0       ),
+        .probe14 ('0       ),
+        .probe15 ('0       ),
+        .probe16 ('0       ),
+        .probe17 ('0       ),
+        .probe18 ('0       ),
+        .probe19 ('0       ),
+        .probe20 ('0       ),
+        .probe21 ('0       ),
+        .probe22 ('0       ),
+        .probe23 ('0       ),
+        .probe24 ('0       ),
+        .probe25 ('0       ),
+        .probe26 ('0       ),
+        .probe27 ('0       ),
+        .probe28 ('0       )
+    );
     
     dmard_descriptor_t dmard_descriptor, dmard_descriptor_next;
 
@@ -77,7 +132,7 @@ module kdma_rd_engine #(
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            state <= IDLE;
+            state <= RESET;
 
             dmard_descriptor <= '0;
 
@@ -96,6 +151,9 @@ module kdma_rd_engine #(
         state_next = state;
 
         case (state)
+            RESET  : begin
+                state_next = IDLE;
+            end
             IDLE   : begin
                 if (dma_task_valid_i && dma_task_ready_o) begin
                     state_next = AR;
@@ -147,6 +205,8 @@ module kdma_rd_engine #(
         rd_irq_sts_o = '0;
 
         case (state)
+            RESET  : begin
+            end
             IDLE   : begin
                 if (dma_rddata_free_i >= dma_task_init_i) begin
                     dma_task_ready_o = '1;

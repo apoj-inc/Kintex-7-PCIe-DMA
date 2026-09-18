@@ -62,6 +62,7 @@ module kdma_wr_engine #(
     assign bready_o = '1;
 
     typedef enum logic [2:0] {
+        RESET  ,
         IDLE   ,
         AW     ,
         W      ,
@@ -79,9 +80,29 @@ module kdma_wr_engine #(
     
     state_t state, state_next;
 
+    ila_0 u_ila_wr_state (
+        .clk    (clk  ),
+
+        .probe0  ('0 ),
+        .probe1  ('0 ),
+        .probe2  ('0 ),
+        .probe3 (state),
+        .probe4  ('0 ),
+
+        .probe5  ('0 ),
+        .probe6  ('0 ),
+        .probe7  ('0 ),
+        .probe8  ('0 ),
+        .probe9  ('0 ),
+        .probe10 ('0 ),
+
+        .probe11 ('0 ),
+        .probe12 ('0 )
+    );
+
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            state <= IDLE;
+            state <= RESET;
 
             dmawr_descriptor <= '0;
         end
@@ -96,6 +117,9 @@ module kdma_wr_engine #(
         state_next = state;
 
         case (state)
+            RESET  : begin
+                state_next = IDLE;
+            end
             IDLE   : begin
                 if (dma_task_valid_i && dma_task_ready_o) begin
                     state_next = AW;
@@ -159,6 +183,8 @@ module kdma_wr_engine #(
         wr_irq_sts_o = '0;
 
         case (state)
+            RESET  : begin
+            end
             IDLE   : begin
                 if (dma_wrdata_count_i >= dma_task_init_i) begin
                     dma_task_ready_o = '1;

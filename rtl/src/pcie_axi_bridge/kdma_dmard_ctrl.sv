@@ -57,6 +57,41 @@ module kdma_dmard_ctrl #(
             assign fifo_gate_o[i] = pipeline_fifo_valid_rd;
             assign pcie_tlast_o[i] = '1;
 
+            axi_ila u_axi_ila_ch0 (
+                .clk     (clk      ),
+
+                .probe0  (fifo_gate_o[i]),
+                .probe1  ('0),
+                .probe2  (id_busy  ),
+                .probe3  ('0  ),
+                .probe4  (fifo_mux_sel_o[i]),
+                .probe5  ('0),
+                .probe6  ('0 ),
+                .probe7  (id_fifo_snoop_valid_i[i]),
+                .probe8  (id_fifo_snoop_ready_i[i]),
+                .probe9  ('0  ),
+                .probe10 (id_fifo_snoop_last_i[i]),
+                .probe11 ('0  ),
+                .probe12 (exp_id   ),
+                .probe13 ('0       ),
+                .probe14 ('0       ),
+                .probe15 ('0       ),
+                .probe16 ('0       ),
+                .probe17 ('0       ),
+                .probe18 ('0       ),
+                .probe19 ('0       ),
+                .probe20 ('0       ),
+                .probe21 ('0       ),
+                .probe22 ('0       ),
+                .probe23 ('0       ),
+                .probe24 ('0       ),
+                .probe25 ('0       ),
+                .probe26 ('0       ),
+                .probe27 ('0       ),
+                .probe28 ('0       )
+            );
+            
+
             stream_fifo #(
                 .DATA_WIDTH (ID_W              ),
                 .FIFO_DEPTH (PIPELINE_CAPACITY )
