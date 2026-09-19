@@ -9,7 +9,7 @@ module kdma_wr_engine #(
     parameter DMA_BURST_WIDTH    = DMA_BYTES_WIDTH - 4                                            ,
     parameter DMA_TASK_WIDTH     = 1 + DMA_OFFFSET_WIDTH + DMA_BURST_WIDTH                        ,
 
-    parameter W_BURST_COMPARATOR = (DMA_WQ_DEPTH - 1) < {6{1'b1}} ? (DMA_WQ_DEPTH - 1) : {6{1'b1}},
+    parameter W_BURST_COMPARATOR = (DMA_WQ_DEPTH - 1) < {4{1'b1}} ? (DMA_WQ_DEPTH - 1) : {4{1'b1}},
 
     parameter DMA_WQ_ADDR_WIDTH  = $clog2(DMA_WQ_DEPTH)                                           ,
     parameter AXI_ID_WIDTH       = PIPELINE_CAPACITY == 1 ? 1 : $clog2(PIPELINE_CAPACITY)         
@@ -62,6 +62,7 @@ module kdma_wr_engine #(
     assign bready_o = '1;
 
     typedef enum logic [2:0] {
+        RESET  ,
         IDLE   ,
         AW     ,
         W      ,
@@ -81,7 +82,7 @@ module kdma_wr_engine #(
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            state <= IDLE;
+            state <= RESET;
 
             dmawr_descriptor <= '0;
         end
@@ -96,6 +97,9 @@ module kdma_wr_engine #(
         state_next = state;
 
         case (state)
+            RESET  : begin
+                state_next = IDLE;
+            end
             IDLE   : begin
                 if (dma_task_valid_i && dma_task_ready_o) begin
                     state_next = AW;
@@ -159,6 +163,8 @@ module kdma_wr_engine #(
         wr_irq_sts_o = '0;
 
         case (state)
+            RESET  : begin
+            end
             IDLE   : begin
                 if (dma_wrdata_count_i >= dma_task_init_i) begin
                     dma_task_ready_o = '1;

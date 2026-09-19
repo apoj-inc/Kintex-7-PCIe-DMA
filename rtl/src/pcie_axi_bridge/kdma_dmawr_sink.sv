@@ -39,7 +39,8 @@ module kdma_dmawr_sink #(
     input  logic [2:0]                   function_number_i                    
 );
 
-    typedef enum logic [1:0] {
+    typedef enum logic [2:0] {
+        RESET   ,
         IDLE    ,
         DMAWR_32,
         DMAWR_64,
@@ -70,7 +71,7 @@ module kdma_dmawr_sink #(
 
             always_ff @(posedge clk or negedge rst_n) begin
                 if (!rst_n) begin
-                    state <= IDLE;
+                    state <= RESET;
 
                     bvalid <= '0;
                     bid    <= '0;
@@ -97,6 +98,9 @@ module kdma_dmawr_sink #(
                 state_next = state;
 
                 case (state)
+                    RESET   : begin
+                        state_next = IDLE;
+                    end
                     IDLE    : begin
                         if (awvalid_i[i] && awready_o[i]) begin
                             if (awsize_i[i] == 3'b100 && awburst_i[i] == 2'b01) begin
@@ -152,6 +156,8 @@ module kdma_dmawr_sink #(
                 wlast_was_next = wlast_was;
 
                 case (state)
+                    RESET   : begin
+                    end
                     IDLE    : begin
                         if (awvalid_i[i]) begin
                             bid_next   = awid_i[i];

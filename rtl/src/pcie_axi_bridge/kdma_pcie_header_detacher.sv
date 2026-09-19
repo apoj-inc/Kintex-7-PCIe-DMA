@@ -17,6 +17,7 @@ module kdma_pcie_header_detacher (
 );
 
     typedef enum logic [1:0] {
+        RESET      ,
         AWAIT_HEADER,
         ADDRESS_32  ,
         ADDRESS_64  
@@ -29,7 +30,7 @@ module kdma_pcie_header_detacher (
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            state <= AWAIT_HEADER;
+            state <= RESET;
             buffer <= '{default: '0};
             flag <= '0;
         end
@@ -44,6 +45,9 @@ module kdma_pcie_header_detacher (
         state_next = state;
 
         case (state)
+            RESET       : begin
+                state_next = AWAIT_HEADER;
+            end
             AWAIT_HEADER: begin
                 if (pcie_detach_valid_o && pcie_detach_ready_i) begin
                     if (pcie_destr_eof_i == 5'b11011) begin
@@ -98,6 +102,8 @@ module kdma_pcie_header_detacher (
         pcie_detach_eof_o     = '0;
 
         case (state)
+            RESET       : begin
+            end
             AWAIT_HEADER: begin
 
                 pcie_detach_valid_o   = pcie_destr_valid_i  ;

@@ -16,7 +16,8 @@ module kdma_pcie_destraddle (
     output logic [4:0]   pcie_destr_eof_o    
 );
 
-    typedef enum logic [1:0] { 
+    typedef enum logic [2:0] {
+        RESET         ,
         AWAIT_HEADER  ,
         NONSTR_NORMAL ,
         NONSTR_HALFWAY,
@@ -30,7 +31,7 @@ module kdma_pcie_destraddle (
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            state <= AWAIT_HEADER;
+            state <= RESET;
             buffer <= '{default: '0};
             flag <= '0;
         end
@@ -44,6 +45,9 @@ module kdma_pcie_destraddle (
     always_comb begin
         state_next = state;
         case (state)
+            RESET: begin
+                state_next = AWAIT_HEADER;
+            end
             AWAIT_HEADER: begin
                 if (pcie_valid_i && pcie_ready_o) begin
                     if ((pcie_sof_i == 5'b10000) && (pcie_eof_i[4] == '1)) begin
@@ -95,6 +99,8 @@ module kdma_pcie_destraddle (
         pcie_ready_o = '0;
 
         case (state)
+            RESET         : begin
+            end
             AWAIT_HEADER  : begin
                 if (pcie_sof_i == 5'b10000) begin
                     pcie_destr_valid_o   = pcie_valid_i  ;

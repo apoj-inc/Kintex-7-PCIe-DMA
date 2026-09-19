@@ -46,6 +46,7 @@ module kdma_pcie_tlp_decoder #(
 );
 
     typedef enum logic[2:0] {
+        RESET       ,
         AWAIT_HEADER,
         UNSUPPORTED ,
         ABORT       ,
@@ -117,7 +118,7 @@ module kdma_pcie_tlp_decoder #(
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            state <= AWAIT_HEADER;
+            state <= RESET;
 
             cnt <= '0;
 
@@ -172,6 +173,9 @@ module kdma_pcie_tlp_decoder #(
         state_next = state;
 
         case (state)
+            RESET       : begin
+                state_next = AWAIT_HEADER;
+            end
             AWAIT_HEADER: begin
                 if (pcie_detach_valid_i && pcie_detach_ready_o) begin
                     if (pcie_detach_header_i) begin
@@ -303,8 +307,11 @@ module kdma_pcie_tlp_decoder #(
         cpl_3dw_12_outb = '0;
 
         case (state)
+            RESET       : begin
+            end
             AWAIT_HEADER: begin
                 pcie_detach_ready_o = '1;
+                bar_pwrite_next = '0;
 
                 if (pcie_detach_valid_i && pcie_detach_ready_o) begin
                     if (pcie_detach_header_i) begin

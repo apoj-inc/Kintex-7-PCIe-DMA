@@ -56,6 +56,7 @@ module kdma_dmard_ctrl #(
             assign fifo_mux_sel_o[i] = pipeline_fifo_valid_rd ? exp_id : '0;
             assign fifo_gate_o[i] = pipeline_fifo_valid_rd;
             assign pcie_tlast_o[i] = '1;
+            
 
             stream_fifo #(
                 .DATA_WIDTH (ID_W              ),

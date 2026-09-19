@@ -76,8 +76,8 @@ module kdma_task_demux #(
         for (int i = 0; i < DMA_CHANNEL_COUNT; i++) begin
             logic [5:0] W_BURST_COMPARATOR;
             logic [5:0] R_BURST_COMPARATOR;
-            W_BURST_COMPARATOR = ((DMA_WQ_DEPTH[i] - 1) < {6{1'b1}}) ? (DMA_WQ_DEPTH[i] - 1) : {6{1'b1}};
-            R_BURST_COMPARATOR = ((DMA_RQ_DEPTH[i] - 1) < {6{1'b1}}) ? (DMA_RQ_DEPTH[i] - 1) : {6{1'b1}};
+            W_BURST_COMPARATOR = ((DMA_WQ_DEPTH[i] - 1) < {4{1'b1}}) ? (DMA_WQ_DEPTH[i] - 1) : {4{1'b1}};
+            R_BURST_COMPARATOR = ((DMA_RQ_DEPTH[i] - 1) < {4{1'b1}}) ? (DMA_RQ_DEPTH[i] - 1) : {4{1'b1}};
 
             if (in_dma_task_valid_i && in_dma_task_ready_o && (in_dma_task_channel_i == i) && (out_dma_task_valid_o[i] != '1)) begin
                 out_dma_task_valid_next [i] = '1                     ;

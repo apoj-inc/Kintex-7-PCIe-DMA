@@ -9,7 +9,7 @@ module kdma_rd_engine #(
     parameter DMA_BURST_WIDTH    = DMA_BYTES_WIDTH - 4                                            ,
     parameter DMA_TASK_WIDTH     = 1 + DMA_OFFFSET_WIDTH + DMA_BURST_WIDTH                        ,
 
-    parameter R_BURST_COMPARATOR = (DMA_RQ_DEPTH - 1) < {6{1'b1}} ? (DMA_RQ_DEPTH - 1) : {6{1'b1}},
+    parameter R_BURST_COMPARATOR = (DMA_RQ_DEPTH - 1) < {4{1'b1}} ? (DMA_RQ_DEPTH - 1) : {4{1'b1}},
 
     parameter DMA_RQ_ADDR_WIDTH  = $clog2(DMA_RQ_DEPTH)                                           ,
     parameter AXI_ID_WIDTH       = PIPELINE_CAPACITY == 1 ? 1 : $clog2(PIPELINE_CAPACITY)         
@@ -53,6 +53,7 @@ module kdma_rd_engine #(
     assign arsize_o  = 3'b100;
 
     typedef enum logic [2:0] {
+        RESET  ,
         IDLE   ,
         AR     ,
         R      ,
@@ -77,7 +78,7 @@ module kdma_rd_engine #(
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            state <= IDLE;
+            state <= RESET;
 
             dmard_descriptor <= '0;
 
@@ -96,6 +97,9 @@ module kdma_rd_engine #(
         state_next = state;
 
         case (state)
+            RESET  : begin
+                state_next = IDLE;
+            end
             IDLE   : begin
                 if (dma_task_valid_i && dma_task_ready_o) begin
                     state_next = AR;
@@ -147,6 +151,8 @@ module kdma_rd_engine #(
         rd_irq_sts_o = '0;
 
         case (state)
+            RESET  : begin
+            end
             IDLE   : begin
                 if (dma_rddata_free_i >= dma_task_init_i) begin
                     dma_task_ready_o = '1;
@@ -173,7 +179,7 @@ module kdma_rd_engine #(
                 if (arvalid_o && arready_i) begin
                     arid_next = (arid + 1 > PIPELINE_CAPACITY) ? 0 : arid + 1;
 
-                    dmard_descriptor_next.words_outstanding = dmard_descriptor.words_outstanding + dmard_descriptor.curr_burst;
+                    dmard_descriptor_next.words_outstanding = dmard_descriptor.words_outstanding + (dmard_descriptor.curr_burst + 1);
                     dmard_descriptor_next.words_left        = dmard_descriptor.words_left - (dmard_descriptor.curr_burst + 1);
                     dmard_descriptor_next.curr_addr         = dmard_descriptor.curr_addr + ((dmard_descriptor.curr_burst + 1) << 4);
                     dmard_descriptor_next.curr_burst        = ((dmard_descriptor.words_left - dmard_descriptor.curr_burst - 2) > R_BURST_COMPARATOR) ?
@@ -186,7 +192,7 @@ module kdma_rd_engine #(
             end
             R      : begin
                 if (rvalid_i && rready_o) begin
-                    dmard_descriptor_next.words_outstanding = dmard_descriptor_next.words_outstanding - 1;
+                    dmard_descriptor_next.words_outstanding = dmard_descriptor.words_outstanding - 1;
                 end
             end
             RD_IRQ : begin

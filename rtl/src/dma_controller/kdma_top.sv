@@ -175,6 +175,7 @@ module kdma_top #(
     assign dma_resetn_o = dma_resetn;
     assign irq_wires = {user_irq_i, dma_rd_irq_sts, dma_wr_irq_sts};
 
+    
     kdma_csr_flatten #(
         .DMA_CHANNEL_COUNT (DMA_CHANNEL_COUNT),
 
