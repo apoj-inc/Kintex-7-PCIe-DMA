@@ -9,7 +9,7 @@ module kdma_wr_engine #(
     parameter DMA_BURST_WIDTH    = DMA_BYTES_WIDTH - 4                                            ,
     parameter DMA_TASK_WIDTH     = 1 + DMA_OFFFSET_WIDTH + DMA_BURST_WIDTH                        ,
 
-    parameter W_BURST_COMPARATOR = (DMA_WQ_DEPTH - 1) < {6{1'b1}} ? (DMA_WQ_DEPTH - 1) : {6{1'b1}},
+    parameter W_BURST_COMPARATOR = (DMA_WQ_DEPTH - 1) < {4{1'b1}} ? (DMA_WQ_DEPTH - 1) : {4{1'b1}},
 
     parameter DMA_WQ_ADDR_WIDTH  = $clog2(DMA_WQ_DEPTH)                                           ,
     parameter AXI_ID_WIDTH       = PIPELINE_CAPACITY == 1 ? 1 : $clog2(PIPELINE_CAPACITY)         
@@ -79,26 +79,6 @@ module kdma_wr_engine #(
     dmawr_descriptor_t dmawr_descriptor, dmawr_descriptor_next;
     
     state_t state, state_next;
-
-    ila_0 u_ila_wr_state (
-        .clk    (clk  ),
-
-        .probe0  ('0 ),
-        .probe1  ('0 ),
-        .probe2  ('0 ),
-        .probe3 (state),
-        .probe4  ('0 ),
-
-        .probe5  ('0 ),
-        .probe6  ('0 ),
-        .probe7  ('0 ),
-        .probe8  ('0 ),
-        .probe9  ('0 ),
-        .probe10 ('0 ),
-
-        .probe11 ('0 ),
-        .probe12 ('0 )
-    );
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin

@@ -25,26 +25,6 @@ module kdma_pcie_header_detacher (
 
     state_t state, state_next;
 
-    ila_0 u_ila_detach_state (
-        .clk    (clk  ),
-
-        .probe0  ('0 ),
-        .probe1  ('0 ),
-        .probe2  ('0 ),
-        .probe3 (state),
-        .probe4  ('0 ),
-
-        .probe5  ('0 ),
-        .probe6  ('0 ),
-        .probe7  ('0 ),
-        .probe8  ('0 ),
-        .probe9  ('0 ),
-        .probe10 ('0 ),
-
-        .probe11 ('0 ),
-        .probe12 ('0 )
-    );
-
     logic [31:0] buffer, buffer_next;
     logic flag, flag_next;
 

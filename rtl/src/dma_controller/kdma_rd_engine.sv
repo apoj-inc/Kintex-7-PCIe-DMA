@@ -9,7 +9,7 @@ module kdma_rd_engine #(
     parameter DMA_BURST_WIDTH    = DMA_BYTES_WIDTH - 4                                            ,
     parameter DMA_TASK_WIDTH     = 1 + DMA_OFFFSET_WIDTH + DMA_BURST_WIDTH                        ,
 
-    parameter R_BURST_COMPARATOR = (DMA_RQ_DEPTH - 1) < {6{1'b1}} ? (DMA_RQ_DEPTH - 1) : {6{1'b1}},
+    parameter R_BURST_COMPARATOR = (DMA_RQ_DEPTH - 1) < {4{1'b1}} ? (DMA_RQ_DEPTH - 1) : {4{1'b1}},
 
     parameter DMA_RQ_ADDR_WIDTH  = $clog2(DMA_RQ_DEPTH)                                           ,
     parameter AXI_ID_WIDTH       = PIPELINE_CAPACITY == 1 ? 1 : $clog2(PIPELINE_CAPACITY)         
@@ -69,60 +69,6 @@ module kdma_rd_engine #(
     } dmard_descriptor_t;
     
     state_t state, state_next;
-
-    ila_0 u_ila_rd_state (
-        .clk    (clk  ),
-
-        .probe0  ('0                         ),
-        .probe1  ('0                         ),
-        .probe2  (dmard_descriptor.words_left),
-        .probe3  (state                      ),
-        .probe4  ('0                         ),
-
-        .probe5  ('0                         ),
-        .probe6  ('0                         ),
-        .probe7  ('0                         ),
-        .probe8  ('0                         ),
-        .probe9  ('0                         ),
-        .probe10 ('0                         ),
-
-        .probe11 ('0                         ),
-        .probe12 ('0                         )
-    );
-
-    axi_ila u_axi_ila_ch0 (
-        .clk     (clk      ),
-
-        .probe0  (arvalid_o),
-        .probe1  (arready_i),
-        .probe2  (araddr_o ),
-        .probe3  (arlen_o  ),
-        .probe4  (arid_o   ),
-        .probe5  (arburst_o),
-        .probe6  (arsize_o ),
-        .probe7  (rvalid_i ),
-        .probe8  (rready_o ),
-        .probe9  (rdata_i  ),
-        .probe10 (rlast_i  ),
-        .probe11 (rresp_i  ),
-        .probe12 (rid_i    ),
-        .probe13 ('0       ),
-        .probe14 ('0       ),
-        .probe15 ('0       ),
-        .probe16 ('0       ),
-        .probe17 ('0       ),
-        .probe18 ('0       ),
-        .probe19 ('0       ),
-        .probe20 ('0       ),
-        .probe21 ('0       ),
-        .probe22 ('0       ),
-        .probe23 ('0       ),
-        .probe24 ('0       ),
-        .probe25 ('0       ),
-        .probe26 ('0       ),
-        .probe27 ('0       ),
-        .probe28 ('0       )
-    );
     
     dmard_descriptor_t dmard_descriptor, dmard_descriptor_next;
 
@@ -233,7 +179,7 @@ module kdma_rd_engine #(
                 if (arvalid_o && arready_i) begin
                     arid_next = (arid + 1 > PIPELINE_CAPACITY) ? 0 : arid + 1;
 
-                    dmard_descriptor_next.words_outstanding = dmard_descriptor.words_outstanding + dmard_descriptor.curr_burst;
+                    dmard_descriptor_next.words_outstanding = dmard_descriptor.words_outstanding + (dmard_descriptor.curr_burst + 1);
                     dmard_descriptor_next.words_left        = dmard_descriptor.words_left - (dmard_descriptor.curr_burst + 1);
                     dmard_descriptor_next.curr_addr         = dmard_descriptor.curr_addr + ((dmard_descriptor.curr_burst + 1) << 4);
                     dmard_descriptor_next.curr_burst        = ((dmard_descriptor.words_left - dmard_descriptor.curr_burst - 2) > R_BURST_COMPARATOR) ?
@@ -246,7 +192,7 @@ module kdma_rd_engine #(
             end
             R      : begin
                 if (rvalid_i && rready_o) begin
-                    dmard_descriptor_next.words_outstanding = dmard_descriptor_next.words_outstanding - 1;
+                    dmard_descriptor_next.words_outstanding = dmard_descriptor.words_outstanding - 1;
                 end
             end
             RD_IRQ : begin
