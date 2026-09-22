@@ -17,101 +17,83 @@ module stream_fifo #(
     input  logic                  ready_i,
     output logic [ADDR_WIDTH:0]   count_o
 );
-
-
     logic [DATA_WIDTH-1:0] fifo_mem [FIFO_DEPTH];
-    logic [ADDR_WIDTH-1:0] read_ptr, read_ptr_reg;
-    logic [ADDR_WIDTH-1:0] write_ptr;
-    logic [ADDR_WIDTH:0] count;
 
-    assign data_o = fifo_mem[read_ptr];
-
-    assign valid_o = (count > 0);
-    assign ready_o = !(count == FIFO_DEPTH);
-    assign count_o = count;
-    assign free_o  = FIFO_DEPTH - count;
-
-    always_ff @(posedge ACLK or negedge ARESETn) begin
-        if (!ARESETn) begin
-            read_ptr <= 0;
-            write_ptr <= 0;
-            count <= 0;
-        end
-        else begin
-            if (valid_i && ready_o) begin
-                write_ptr <= (write_ptr == (FIFO_DEPTH - 1)) ? 0 : write_ptr + 1;
-            end
-            if (valid_o && ready_i) begin
-                read_ptr <= (read_ptr == (FIFO_DEPTH - 1)) ? 0 : read_ptr + 1;
-            end
-
-            if (valid_i && ready_o && !(valid_o && ready_i)) begin
-                count <= count + 1;
-            end
-            else if (!(valid_i && ready_o) && (valid_o && ready_i)) begin
-                count <= count - 1;
-            end
-        end
-    end
-
-    always @(posedge ACLK) begin
-        if (valid_i && ready_o) begin
-            fifo_mem[write_ptr] <= data_i;
-        end
-    end
-    /*
-    logic write_handshake;
-
-    assign ready_o = !((count != 0) & (read_ptr_reg == write_ptr));
-	assign valid_o = (count > 0);
-
-    always @(posedge ACLK) begin
-        if (valid_i && ready_o) begin
-            fifo_mem[write_ptr] <= data_i;
-        end
-    end
+    logic we, re;
+    logic fwft, fwft_next;
+    logic lw, lw_next;
     
-    always @(posedge ACLK) begin
-        data_o <= fifo_mem[read_ptr];
-    end
+    logic [ADDR_WIDTH-1:0] read_ptr , read_ptr_next ;
+    logic [ADDR_WIDTH-1:0] write_ptr, write_ptr_next;
 
-    always_ff @(posedge ACLK or negedge ARESETn) begin
+    logic [ADDR_WIDTH:0] count_next;
+
+    assign we = valid_i & ready_o;
+    assign re = valid_o & ready_i | fwft | lw;
+
+    assign valid_o = (count_o > 0) & ~fwft & ~lw;
+    assign ready_o = (count_o < FIFO_DEPTH);
+
+    assign free_o = FIFO_DEPTH - count_o;
+
+    always_ff @(posedge ACLK or negedge ARESETn) begin : blockName
         if (!ARESETn) begin
-            read_ptr_reg <= 0;
-            write_ptr <= 0;
-            write_handshake <= 0;
+            fwft      <= '0;
+            read_ptr  <= '0;
+            write_ptr <= '0;
+            lw        <= '0;
+            count_o   <= '0;
         end
         else begin
-            if (valid_i && ready_o) begin
-                write_ptr <= (write_ptr == (FIFO_DEPTH - 1)) ? 0 : write_ptr + 1;
-            end
-
-            read_ptr_reg <= read_ptr;
-            write_handshake <= valid_i & ready_o;
+            fwft      <= fwft_next     ;
+            read_ptr  <= read_ptr_next ;
+            write_ptr <= write_ptr_next;
+            lw        <= lw_next       ;
+            count_o   <= count_next    ;
         end
     end
+
 
     always_comb begin
-        read_ptr = read_ptr_reg;
-        if (valid_o && ready_i) begin
-            read_ptr = (read_ptr_reg == (FIFO_DEPTH - 1)) ? 0 : read_ptr_reg + 1;
+        read_ptr_next  = read_ptr ;
+        write_ptr_next = write_ptr;
+        count_next     = count_o  ;
+        fwft_next      = fwft     ;
+        lw_next        = lw       ;
+
+        if (valid_i & ready_o) begin
+            write_ptr_next = (write_ptr + 1 < FIFO_DEPTH) ? write_ptr + 1 : 0;
+            count_next = count_o + 1;
+            lw_next = '0;
+            fwft_next = (count_o == 0) ? '1 : 0;
+        end
+
+        if (valid_o & ready_i) begin
+            read_ptr_next = (read_ptr + 1 < FIFO_DEPTH) ? read_ptr + 1 : 0;
+            count_next = count_next - 1;
+            lw_next = (count_o == 1) ? '1 : 0;
+            fwft_next = '0;
+        end
+
+        if (fwft) begin
+            fwft_next = '0;
+        end
+
+        if (lw) begin
+            lw_next = '0;
         end
     end
 
-    always_ff @(posedge ACLK or negedge ARESETn) begin
-        if (!ARESETn) begin
-            count <= 0;
-        end
-        else begin
-				
-            if (write_handshake && !(valid_o && ready_i)) begin
-                count <= count + 1;
-            end
-
-            if (!write_handshake && (valid_o && ready_i)) begin
-                count <= count - 1;
-            end
+    always @(posedge ACLK) begin
+        if (we) begin
+            fifo_mem[write_ptr] <= data_i;
         end
     end
-    */
+
+    always @(posedge ACLK) begin
+        if (re) begin
+            data_o <= fifo_mem[read_ptr_next];
+        end
+    end
+
 endmodule
