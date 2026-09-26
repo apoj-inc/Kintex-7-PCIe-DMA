@@ -9,7 +9,7 @@ module kdma_rd_engine #(
     parameter DMA_BURST_WIDTH    = DMA_BYTES_WIDTH - 4                                            ,
     parameter DMA_TASK_WIDTH     = 1 + DMA_OFFFSET_WIDTH + DMA_BURST_WIDTH                        ,
 
-    parameter R_BURST_COMPARATOR = (DMA_RQ_DEPTH - 1) < {4{1'b1}} ? (DMA_RQ_DEPTH - 1) : {4{1'b1}},
+    parameter R_BURST_COMPARATOR = (DMA_RQ_DEPTH - 1) < {3{1'b1}} ? (DMA_RQ_DEPTH - 1) : {3{1'b1}},
 
     parameter DMA_RQ_ADDR_WIDTH  = $clog2(DMA_RQ_DEPTH)                                           ,
     parameter AXI_ID_WIDTH       = PIPELINE_CAPACITY == 1 ? 1 : $clog2(PIPELINE_CAPACITY)         

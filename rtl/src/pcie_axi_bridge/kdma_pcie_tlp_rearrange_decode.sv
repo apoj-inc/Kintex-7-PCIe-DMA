@@ -102,12 +102,12 @@ module kdma_pcie_tlp_rearrange_decode #(
         .pcie_destr_bar_hit_i  (pcie_destr_bar_hit_rd),
         .pcie_destr_eof_i      (pcie_destr_eof_rd    ),
 
-        .pcie_detach_valid_o   (pcie_detach_valid  ),
-        .pcie_detach_ready_i   (pcie_detach_ready  ),
-        .pcie_detach_data_o    (pcie_detach_data   ),
-        .pcie_detach_header_o  (pcie_detach_header ),
-        .pcie_detach_bar_hit_o (pcie_detach_bar_hit),
-        .pcie_detach_eof_o     (pcie_detach_eof    )
+        .pcie_detach_valid_o   (pcie_detach_valid    ),
+        .pcie_detach_ready_i   (pcie_detach_ready    ),
+        .pcie_detach_data_o    (pcie_detach_data     ),
+        .pcie_detach_header_o  (pcie_detach_header   ),
+        .pcie_detach_bar_hit_o (pcie_detach_bar_hit  ),
+        .pcie_detach_eof_o     (pcie_detach_eof      )
     );
 
     kdma_pcie_tlp_decoder #(

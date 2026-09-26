@@ -223,7 +223,7 @@ module kdma_pcie_axi_bridge #(
         .device_number_i   (device_number_i    ),
         .function_number_i (function_number_i  ),
 
-        .error_o           (                   )                     
+        .error_o           (                   )
     );
 
     generate

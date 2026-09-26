@@ -42,7 +42,7 @@ module kdma_pcie_tlp_decoder #(
     input  logic [4:0]                device_number_i                  ,
     input  logic [2:0]                function_number_i                ,
 
-    output logic                      error_o                          
+    output logic                      error_o                               
 );
 
     typedef enum logic[2:0] {

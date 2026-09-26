@@ -57,6 +57,7 @@ logic rst_n;
 
 logic           user_clk_out    ;
 logic           user_reset_out  ;
+logic           user_resetn_out ;
 
 logic           s_axis_tx_tready;
 logic [127 : 0] s_axis_tx_tdata ;
@@ -74,6 +75,8 @@ logic [21 : 0]  m_axis_rx_tuser ;
 logic [4:0]     m_axis_sof    ;
 logic [4:0]     m_axis_eof    ;
 logic [4:0]     m_axis_bar_hit;
+
+assign user_resetn_out = ~user_reset_out;
 
 assign m_axis_sof     = m_axis_rx_tuser[14:10];
 assign m_axis_eof     = m_axis_rx_tuser[21:17];
@@ -106,7 +109,7 @@ kdma_echodevice_bridged #(
     .MAX_RQ_DEPTH      (MAX_RQ_DEPTH      )
 ) (
     .clk              (user_clk_out   ),
-    .rst_n            (~user_reset_out),
+    .rst_n            (user_resetn_out),
 
     .pcie_valid_i     (m_axis_rx_tvalid),
     .pcie_ready_o     (m_axis_rx_tready),

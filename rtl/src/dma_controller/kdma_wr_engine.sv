@@ -9,7 +9,7 @@ module kdma_wr_engine #(
     parameter DMA_BURST_WIDTH    = DMA_BYTES_WIDTH - 4                                            ,
     parameter DMA_TASK_WIDTH     = 1 + DMA_OFFFSET_WIDTH + DMA_BURST_WIDTH                        ,
 
-    parameter W_BURST_COMPARATOR = (DMA_WQ_DEPTH - 1) < {4{1'b1}} ? (DMA_WQ_DEPTH - 1) : {4{1'b1}},
+    parameter W_BURST_COMPARATOR = (DMA_WQ_DEPTH - 1) < {3{1'b1}} ? (DMA_WQ_DEPTH - 1) : {3{1'b1}},
 
     parameter DMA_WQ_ADDR_WIDTH  = $clog2(DMA_WQ_DEPTH)                                           ,
     parameter AXI_ID_WIDTH       = PIPELINE_CAPACITY == 1 ? 1 : $clog2(PIPELINE_CAPACITY)         
@@ -166,7 +166,7 @@ module kdma_wr_engine #(
             RESET  : begin
             end
             IDLE   : begin
-                if (dma_wrdata_count_i >= dma_task_init_i) begin
+                if (dma_wrdata_count_i >= (dma_task_init_i + 1)) begin
                     dma_task_ready_o = '1;
                 end
                 else begin
@@ -183,7 +183,7 @@ module kdma_wr_engine #(
                 end
             end
             AW     : begin
-                awvalid_o = '1;
+                awvalid_o = (dma_wrdata_count_i >= dmawr_descriptor.curr_burst + 1);
                 awaddr_o  = dmawr_descriptor.curr_addr;
                 awlen_o   = dmawr_descriptor.curr_burst;
             end
