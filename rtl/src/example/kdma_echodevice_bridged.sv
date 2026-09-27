@@ -103,6 +103,8 @@ logic                         msix_bready                        ;
 logic [AXI_ID_WIDTH-1:0]      msix_bid                           ;
 logic [1:0]                   msix_bresp                         ;
 
+logic                         dma_resetn                         ;
+
 
 kdma_pcie_axi_bridge #(
     .BAR_COUNT         (BAR_COUNT        ),
@@ -111,7 +113,7 @@ kdma_pcie_axi_bridge #(
     .PIPELINE_CAPACITY (PIPELINE_CAPACITY)
 ) u_kdma_pcie_axi_bridge (
     .clk               (clk              ),
-    .rst_n             (rst_n            ),
+    .rst_n             (dma_resetn       ),
 
     .pcie_valid_i      (pcie_valid_i     ),
     .pcie_ready_o      (pcie_ready_o     ),
@@ -348,7 +350,9 @@ kdma_echodevice #(
     .msix_bvalid_i  (msix_bvalid    ),
     .msix_bready_o  (msix_bready    ),
     .msix_bid_i     (msix_bid       ),
-    .msix_bresp_i   (msix_bresp     )
+    .msix_bresp_i   (msix_bresp     ),
+
+    .dma_resetn_o   (dma_resetn     )
 );
     
 endmodule

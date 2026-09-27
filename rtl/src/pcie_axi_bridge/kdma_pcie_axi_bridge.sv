@@ -246,7 +246,7 @@ module kdma_pcie_axi_bridge #(
             for (j = 0; j < PIPELINE_CAPACITY; j++) begin : fifos
                 stream_fifo #(
                     .DATA_WIDTH (128+1),
-                    .FIFO_DEPTH (256  ) 
+                    .FIFO_DEPTH (128  ) 
                 ) u_stream_fifo_id_buf (
                     .ACLK    (clk  ),
                     .ARESETn (rst_n),

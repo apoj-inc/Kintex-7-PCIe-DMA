@@ -1,3 +1,10 @@
 transcript
-.cache/
+.cache*/
 etch*
+
+sw/dma_driver/*
+!sw/dma_driver/kdma_driver.c
+!sw/dma_driver/Makefile
+
+sw/example/*
+!sw/example/*.c

@@ -31,3 +31,4 @@ rtl/src/pcie_axi_bridge/kdma_msix_bridge.sv
 rtl/src/pcie_axi_bridge/kdma_pcie_axi_bridge.sv
 rtl/src/example/kdma_echodevice.sv
 rtl/src/example/kdma_echodevice_bridged.sv
+rtl/src/kdma_toplevel.sv

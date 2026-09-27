@@ -106,7 +106,9 @@ module kdma_echodevice #(
     input  logic                         msix_bvalid_i                           ,
     output logic                         msix_bready_o                           ,
     input  logic [AXI_ID_WIDTH-1:0]      msix_bid_i                              ,
-    input  logic [1:0]                   msix_bresp_i                            
+    input  logic [1:0]                   msix_bresp_i                            ,
+
+    output logic                         dma_resetn_o                            
 );
 
     logic                       dma_wrdata_valid [DMA_CHANNEL_COUNT];
@@ -120,6 +122,8 @@ module kdma_echodevice #(
     logic [127:0]               dma_rddata_data  [DMA_CHANNEL_COUNT];
 
     logic dma_resetn;
+
+    assign dma_resetn_o = dma_resetn;
 
     generate
         genvar i;

@@ -25,16 +25,16 @@ module kdma_toplevel (
 
 parameter     BAR_COUNT                             = 4         ;
 
-parameter     DMA_CHANNEL_COUNT                     = 2         ;
+parameter     DMA_CHANNEL_COUNT                     = 8         ;
 parameter     PIPELINE_CAPACITY                     = 4         ;
 
 parameter     DMA_BYTES_WIDTH                       = 22        ;
 parameter     DMA_OFFFSET_WIDTH                     = 22        ;
 
-parameter int DMA_WORD_BYTES    [DMA_CHANNEL_COUNT] = '{2{64  }};
-parameter int DMA_WQ_DEPTH      [DMA_CHANNEL_COUNT] = '{2{64  }};
-parameter int DMA_RQ_DEPTH      [DMA_CHANNEL_COUNT] = '{2{64  }};
-parameter     DMA_TQ_DEPTH                          = 2         ;
+parameter int DMA_WORD_BYTES    [DMA_CHANNEL_COUNT] = '{8{64  }};
+parameter int DMA_WQ_DEPTH      [DMA_CHANNEL_COUNT] = '{8{64  }};
+parameter int DMA_RQ_DEPTH      [DMA_CHANNEL_COUNT] = '{8{64  }};
+parameter     DMA_TQ_DEPTH                          = 8         ;
 
 parameter     MAX_WQ_DEPTH                          = 64        ;
 parameter     MAX_RQ_DEPTH                          = 64        ;
