@@ -53,7 +53,6 @@ assign pci_exp_rxp = {pci_exp_rx3_p, pci_exp_rx2_p, pci_exp_rx1_p, pci_exp_rx0_p
 assign pci_exp_rxn = {pci_exp_rx3_n, pci_exp_rx2_n, pci_exp_rx1_n, pci_exp_rx0_n};
 
 logic clk;
-logic rst_n;
 
 logic           user_clk_out    ;
 logic           user_reset_out  ;
@@ -86,10 +85,7 @@ logic [7:0] cfg_bus_number     ;
 logic [4:0] cfg_device_number  ;
 logic [2:0] cfg_function_number;
 
-IBUF   sys_reset_n_ibuf (.O(rst_n), .I(sys_rst_n));
-
 IBUFDS_GTE2 refclk_ibuf (.O(clk), .ODIV2(), .I(clk_in_p), .CEB(1'b0), .IB(clk_in_n));
-
 
 kdma_echodevice_bridged #(
     .BAR_COUNT         (BAR_COUNT         ),
@@ -252,26 +248,26 @@ BUFG usr2 (.O(userclk2_buf), .I(userclk2));
 BUFG dclkbuf (.O(dclk), .I(clk_125mhz));
 
 pcie_7x_0 u_pcie_7x_0 (
-    .pci_exp_txp                  (pci_exp_txp)        ,
-    .pci_exp_txn                  (pci_exp_txn)        ,
-    .pci_exp_rxp                  (pci_exp_rxp)        ,
-    .pci_exp_rxn                  (pci_exp_rxn)        ,
-    .user_clk_out                 (user_clk_out)       ,
-    .user_reset_out               (user_reset_out)     ,
-    .s_axis_tx_tready             (s_axis_tx_tready)   ,
-    .s_axis_tx_tdata              (s_axis_tx_tdata )   ,
-    .s_axis_tx_tkeep              (s_axis_tx_tkeep )   ,
-    .s_axis_tx_tlast              (s_axis_tx_tlast )   ,
-    .s_axis_tx_tvalid             (s_axis_tx_tvalid)   ,
-    .s_axis_tx_tuser              ('0)                 ,
-    .m_axis_rx_tdata              (m_axis_rx_tdata )   ,
-    .m_axis_rx_tkeep              (m_axis_rx_tkeep )   ,
-    .m_axis_rx_tlast              (m_axis_rx_tlast )   ,
-    .m_axis_rx_tvalid             (m_axis_rx_tvalid)   ,
-    .m_axis_rx_tready             (m_axis_rx_tready)   ,
-    .m_axis_rx_tuser              (m_axis_rx_tuser )   ,
-    .sys_clk                      (clk)                ,
-    .sys_rst_n                    (rst_n)              ,
+    .pci_exp_txp                  (pci_exp_txp        ),
+    .pci_exp_txn                  (pci_exp_txn        ),
+    .pci_exp_rxp                  (pci_exp_rxp        ),
+    .pci_exp_rxn                  (pci_exp_rxn        ),
+    .user_clk_out                 (user_clk_out       ),
+    .user_reset_out               (user_reset_out     ),
+    .s_axis_tx_tready             (s_axis_tx_tready   ),
+    .s_axis_tx_tdata              (s_axis_tx_tdata    ),
+    .s_axis_tx_tkeep              (s_axis_tx_tkeep    ),
+    .s_axis_tx_tlast              (s_axis_tx_tlast    ),
+    .s_axis_tx_tvalid             (s_axis_tx_tvalid   ),
+    .s_axis_tx_tuser              ('0                 ),
+    .m_axis_rx_tdata              (m_axis_rx_tdata    ),
+    .m_axis_rx_tkeep              (m_axis_rx_tkeep    ),
+    .m_axis_rx_tlast              (m_axis_rx_tlast    ),
+    .m_axis_rx_tvalid             (m_axis_rx_tvalid   ),
+    .m_axis_rx_tready             (m_axis_rx_tready   ),
+    .m_axis_rx_tuser              (m_axis_rx_tuser    ),
+    .sys_clk                      (clk                ),
+    .sys_rst_n                    (sys_rst_n          ),
     .cfg_bus_number               (cfg_bus_number     ),
     .cfg_device_number            (cfg_device_number  ),
     .cfg_function_number          (cfg_function_number),
