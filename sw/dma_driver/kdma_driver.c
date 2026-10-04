@@ -112,15 +112,15 @@ static ssize_t read_from_pci(struct file *filp, char __user *user_buf, size_t le
         return -ENOMEM;
     }
 
-    //mutex_lock(&task_read_mutex);
+    mutex_lock(&task_read_mutex);
     uint32_t task_fifo_free = ioread32(bar2_ptr + 0x4);
     if (task_fifo_free == 0) {
         printk(KERN_ERR "hdlnocgen_c5p_driver: Read from DMA channel %d fail - no free spaces in DMAWR-FIFO\n", channel);
-        //mutex_unlock(&task_read_mutex);
+        mutex_unlock(&task_read_mutex);
         return -ENOMEM;
     }
     iowrite64((((uint64_t)len) << 32) | (uint64_t)*off, bar2_ptr + 0x1000 + channel*0x10);
-    //mutex_unlock(&task_read_mutex);
+    mutex_unlock(&task_read_mutex);
     //printk(KERN_INFO "hdlnocgen_c5p_driver: Read from DMA channel %d command sent\n", channel);
 
 
@@ -200,15 +200,15 @@ static ssize_t write_to_pci(struct file *filp, const char __user *user_buf, size
         return not_copied;
     }
 
-    //mutex_lock(&task_write_mutex);
+    mutex_lock(&task_write_mutex);
     uint32_t task_fifo_free = ioread32(bar2_ptr + 0x8);
     if (task_fifo_free == 0) {
         printk(KERN_ERR "hdlnocgen_c5p_driver: Write to DMA channel %d fail - no free spaces in DMARD-FIFO\n", channel);
-        //mutex_unlock(&task_write_mutex);
+        mutex_unlock(&task_write_mutex);
         return -ENOMEM;
     }
     iowrite64((((uint64_t)(len-not_copied)) << 32) | (uint64_t)*off, bar2_ptr + 0x1008 + channel*0x10);
-    //mutex_unlock(&task_write_mutex);
+    mutex_unlock(&task_write_mutex);
     //printk(KERN_INFO "hdlnocgen_c5p_driver: Write to DMA channel %d command sent\n", channel);
 
     uint32_t jiffies = wait_event_interruptible_timeout(dma_wq, dma_irq_wr_flags[channel] == 1, HZ*2);
