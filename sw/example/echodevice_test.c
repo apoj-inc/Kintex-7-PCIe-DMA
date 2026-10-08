@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <pthread.h>
 #include <time.h>
+#include <string.h>
 
 #define ARRAY_SIZE (uint64_t)(1024*16/8)
 #define DMA_CHANNEL_COUNT 8
@@ -55,12 +56,21 @@ void *dma_test (void *index) {
 }
 
 int main (int argc, char **argv) {
-    if (argc < 3) {
+    if (argc < 4) {
         return -1;
     }
 
-    int iteration_count = atoi(argv[1]);
-    int parallel = atoi(argv[2]);
+    char *bdf = malloc(sizeof(strlen(argv[1])));
+    if (!bdf) {
+        printf("Argv 1 alloc error\n");
+        return -1;
+    }
+    if (!strcpy(bdf, argv[1])) {
+        printf("Argv 1 strcpy error\n");
+        return -1;
+    }
+    int iteration_count = atoi(argv[2]);
+    int parallel = atoi(argv[3]);
 
     pthread_t threads[DMA_CHANNEL_COUNT];
 
@@ -71,7 +81,7 @@ int main (int argc, char **argv) {
     for (int i = 0; i < DMA_CHANNEL_COUNT; i++) {
         char *filepath;
 
-        int size = asprintf(&filepath, "/dev/hdlnocgen_c5p%d", i);
+        int size = asprintf(&filepath, "/dev/hdlnocgen_%s_%d", bdf, i);
         if (size < 0) {
             return size;
         }
@@ -100,8 +110,17 @@ int main (int argc, char **argv) {
     }
     printf("All channels initialized data\n");
 
-    int csr_fd = open("/dev/hdlnocgen_c5p_dma_csr", O_RDWR);
+    char *filepath;
+    int size = asprintf(&filepath, "/dev/hdlnocgen_%s_dma_csr", bdf);
+    if (size < 0) {
+        return size;
+    }
+    printf("Target CSR file %s\n", filepath);
+
+    int csr_fd = open(filepath, O_RDWR);
+    free(filepath);
     if (csr_fd < 0) {
+        printf("Failed to open CSR file\n");
         return csr_fd;
     }
     uint32_t writedata = 0;

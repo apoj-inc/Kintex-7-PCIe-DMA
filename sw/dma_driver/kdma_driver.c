@@ -18,19 +18,39 @@
 
 DECLARE_WAIT_QUEUE_HEAD(dma_wq);
 
-// Task mutex
-struct mutex task_read_mutex;
-struct mutex task_write_mutex;
-
-//Device globs
-uint64_t b0_start, b0_size;
-uint64_t b2_start, b2_size;
 uint16_t vendor, device;
 
-// Device file globs
-static dev_t driver_dev_nr;
-static struct cdev driver_cdev;
-static struct class *driver_class;
+struct hdlnocgen_device {
+    // Task mutex
+    struct mutex task_read_mutex;
+    struct mutex task_write_mutex;
+
+    // Device variables
+    uint64_t b0_start, b0_size;
+    uint64_t b2_start, b2_size;
+    void __iomem *bar0_ptr, *bar2_ptr; // Remapped BARs
+    uint32_t bdf;
+
+    // Device file variables
+    dev_t driver_dev_nr;
+    struct cdev driver_cdev;
+    struct class *driver_class;
+
+    // DMA control variables
+    uint16_t dma_channel_count;
+    int dma_irq_index[16];
+    uint8_t dma_irq_rd_flags[16];
+    uint8_t dma_irq_wr_flags[16];
+    uint64_t dma_cap_addrs[17];
+    int user_irq_index[16];
+    uint8_t user_irq_flags[16];
+    void *cpu_addr[16];
+    dma_addr_t dma_handle[16];
+};
+
+static struct hdlnocgen_device *device_array[16] = { NULL };
+static uint8_t hdlnocgen_device_count = 0;
+
 static char *hdlnocgen_devnode(const struct device *dev, umode_t *mode) {
     if (!mode) {
         return NULL;
@@ -42,34 +62,33 @@ static char *hdlnocgen_devnode(const struct device *dev, umode_t *mode) {
     return NULL;
 }
 
-// DMA config globs
-static uint16_t dma_channel_count;
-void __iomem *bar0_ptr, *bar2_ptr;
-int dma_irq_index[16] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
-
+// IRQ assertion counter
 uint16_t irq_fired = 0;
-
-uint8_t dma_irq_rd_flags[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-uint8_t dma_irq_wr_flags[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-
-uint64_t dma_cap_addrs[17] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-
-
-int user_irq_index[16] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
-uint8_t user_irq_flags[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-
-// DMA pointer globs
-static void *cpu_addr[16];
-static dma_addr_t dma_handle[16];
 
 // Error handling globs
 int err, err_index = 0;
 
 
 static ssize_t read_from_pci(struct file *filp, char __user *user_buf, size_t len, loff_t *off) {
+    int dev_ind;
+
+    for (int i = 0; i < 16; i++) {
+        if (MAJOR(device_array[i]->driver_dev_nr) == MAJOR(filp->f_inode->i_rdev)) {
+            dev_ind = i;
+            break;
+        }
+        if (i == 15) {
+            printk(KERN_ERR "hdlnocgen_c5p_driver: No MAJOR match, bad device files\n");
+            return -1;
+        }
+    }
+
     int channel = MINOR(filp->f_inode->i_rdev);
 
-    if (channel == dma_channel_count) {
+    //printk(KERN_INFO "hdlnocgen_c5p_driver: Read request from device %d BDF %x MINOR %u\n", dev_ind, device_array[dev_ind]->bdf, channel);
+
+
+    if (channel == (device_array[dev_ind]->dma_channel_count)) {
         int retval = len - 1;
         if (retval == -1) {
             return retval;
@@ -77,21 +96,21 @@ static ssize_t read_from_pci(struct file *filp, char __user *user_buf, size_t le
         if (*off > 16) {
             return -EINVAL;
         }
-        retval += copy_to_user(user_buf, user_irq_flags+*off, 1);
+        retval += copy_to_user(user_buf, (device_array[dev_ind]->user_irq_flags)+*off, 1);
 
         return retval;
     }
-    else if (channel == dma_channel_count+1) {
+    else if (channel == (device_array[dev_ind]->dma_channel_count)+1) {
         int retval = len - 4;
         if (retval < 0) {
             return retval;
         }
-        uint32_t read_value = ioread32(bar2_ptr+0x2000+*off);
+        uint32_t read_value = ioread32((device_array[dev_ind]->bar2_ptr)+0x2000+*off);
         retval += copy_to_user(user_buf, &read_value, 4);
 
         return retval;
     }
-    else if (channel == dma_channel_count+2) {
+    else if (channel == (device_array[dev_ind]->dma_channel_count)+2) {
         int retval = len - 4;
         if (retval < 0) {
             return retval;
@@ -99,44 +118,42 @@ static ssize_t read_from_pci(struct file *filp, char __user *user_buf, size_t le
         if ((uint64_t)*off > 0xC) {
             return -EINVAL;
         }
-        uint32_t read_value = ioread32(bar2_ptr+0x0000+*off);
+        uint32_t read_value = ioread32((device_array[dev_ind]->bar2_ptr)+0x0000+*off);
         retval += copy_to_user(user_buf, &read_value, 4);
 
         return retval;
     }
-
-    //printk(KERN_INFO "hdlnocgen_c5p_driver: Read request to channel %u\n", channel);
 
     if (len > DMA_BUFFER_SIZE) {
         printk(KERN_ERR "hdlnocgen_c5p_driver: Requested to read %lu bytes, which is larger than size of DMA buffer (%llu bytes)\n", len, (uint64_t)DMA_BUFFER_SIZE);
         return -ENOMEM;
     }
 
-    mutex_lock(&task_read_mutex);
-    uint32_t task_fifo_free = ioread32(bar2_ptr + 0x4);
+    mutex_lock(&(device_array[dev_ind]->task_read_mutex));
+    uint32_t task_fifo_free = ioread32((device_array[dev_ind]->bar2_ptr) + 0x4);
     if (task_fifo_free == 0) {
         printk(KERN_ERR "hdlnocgen_c5p_driver: Read from DMA channel %d fail - no free spaces in DMAWR-FIFO\n", channel);
-        mutex_unlock(&task_read_mutex);
+        mutex_unlock(&(device_array[dev_ind]->task_read_mutex));
         return -ENOMEM;
     }
-    iowrite64((((uint64_t)len) << 32) | (uint64_t)*off, bar2_ptr + 0x1000 + channel*0x10);
-    mutex_unlock(&task_read_mutex);
+    iowrite64((((uint64_t)len) << 32) | (uint64_t)*off, (device_array[dev_ind]->bar2_ptr) + 0x1000 + channel*0x10);
+    mutex_unlock(&(device_array[dev_ind]->task_read_mutex));
     //printk(KERN_INFO "hdlnocgen_c5p_driver: Read from DMA channel %d command sent\n", channel);
 
 
-    uint32_t jiffies = wait_event_interruptible_timeout(dma_wq, dma_irq_rd_flags[channel] == 1, HZ*2);
+    uint32_t jiffies = wait_event_interruptible_timeout(dma_wq, (device_array[dev_ind]->dma_irq_rd_flags[channel]) == 1, HZ*2);
     if (!jiffies) {
-        printk(KERN_ERR "hdlnocgen_c5p_driver: Read from DMA channel %d timeout\n", channel);
-        uint32_t irq_status = ioread32(bar2_ptr + (dma_cap_addrs[channel] + 0x20));
+        printk(KERN_ERR "hdlnocgen_c5p_driver: Read from DMA device %d BDF %x MINOR %u timeout\n", dev_ind, device_array[dev_ind]->bdf, channel);
+        uint32_t irq_status = ioread32((device_array[dev_ind]->bar2_ptr) + ((device_array[dev_ind]->dma_cap_addrs[channel]) + 0x20));
         printk(KERN_ERR "hdlnocgen_c5p_driver: irq status %u\n", irq_status);
         printk(KERN_ERR "hdlnocgen_c5p_driver: irq fired %u times\n", irq_fired);
         return -1;
     }
-    dma_irq_rd_flags[channel] = 0;
+    (device_array[dev_ind]->dma_irq_rd_flags[channel]) = 0;
 
     //printk(KERN_INFO "hdlnocgen_c5p_driver: Read from DMA channel %d finished successfully\n", channel);
 
-    uint64_t not_copied = copy_to_user(user_buf, cpu_addr[channel] + (uint64_t)*off, len);
+    uint64_t not_copied = copy_to_user(user_buf, (device_array[dev_ind]->cpu_addr[channel]) + (uint64_t)*off, len);
 
     if (not_copied) {
         printk(KERN_WARNING "hdlnocgen_c5p_driver: %llu bytes of data failed to copy to kernel\n", not_copied);
@@ -146,9 +163,24 @@ static ssize_t read_from_pci(struct file *filp, char __user *user_buf, size_t le
 }
 
 static ssize_t write_to_pci(struct file *filp, const char __user *user_buf, size_t len, loff_t *off) {
+    int dev_ind;
+
+    for (int i = 0; i < 16; i++) {
+        if (MAJOR(device_array[i]->driver_dev_nr) == MAJOR(filp->f_inode->i_rdev)) {
+            dev_ind = i;
+            break;
+        }
+        if (i == 15) {
+            printk(KERN_ERR "hdlnocgen_c5p_driver: No MAJOR match, bad device files\n");
+            return -1;
+        }
+    }
+
     int channel = MINOR(filp->f_inode->i_rdev);
 
-    if (channel == dma_channel_count) {
+    //printk(KERN_INFO "hdlnocgen_c5p_driver: Write request to device %d BDF %x MINOR %u\n", dev_ind, device_array[dev_ind]->bdf, channel);
+
+    if (channel == (device_array[dev_ind]->dma_channel_count)) {
         int retval = len - 1;
         if (retval == -1) {
             return 0;
@@ -156,22 +188,22 @@ static ssize_t write_to_pci(struct file *filp, const char __user *user_buf, size
         if (*off > 16) {
             return -EINVAL;
         }
-        retval += copy_from_user(user_irq_flags+*off, user_buf, 1);
+        retval += copy_from_user((device_array[dev_ind]->user_irq_flags)+*off, user_buf, 1);
 
         return retval;
     }
-    else if (channel == dma_channel_count+1) {
+    else if (channel == (device_array[dev_ind]->dma_channel_count)+1) {
         int retval = len - 4;
         if (retval < 0) {
             return retval;
         }
         uint32_t write_value;
         retval += copy_from_user(&write_value, user_buf, 4);
-        iowrite32(write_value, bar2_ptr+0x2000+*off);
+        iowrite32(write_value, (device_array[dev_ind]->bar2_ptr)+0x2000+*off);
 
         return retval;
     }
-    else if (channel == dma_channel_count+2) {
+    else if (channel == (device_array[dev_ind]->dma_channel_count)+2) {
         int retval = len - 4;
         if (retval < 0) {
             return retval;
@@ -181,45 +213,50 @@ static ssize_t write_to_pci(struct file *filp, const char __user *user_buf, size
         }
         uint32_t write_value;
         retval += copy_from_user(&write_value, user_buf, 4);
-        iowrite32(write_value, bar2_ptr+0x0000+*off);
+        iowrite32(write_value, (device_array[dev_ind]->bar2_ptr)+0x0000+*off);
 
         return retval;
     }
-
-    //printk(KERN_INFO "hdlnocgen_c5p_driver: Write request to channel %u\n", channel);
 
     if (len > DMA_BUFFER_SIZE) {
         printk(KERN_ERR "hdlnocgen_c5p_driver: Requested to write %lu bytes, which is larger than size of DMA buffer (%llu bytes)\n", len, (uint64_t)DMA_BUFFER_SIZE);
         return -ENOMEM;
     }
 
-    uint64_t not_copied = copy_from_user(cpu_addr[channel] + (uint64_t)*off, user_buf, len);
+    uint64_t not_copied = copy_from_user((device_array[dev_ind]->cpu_addr[channel]) + (uint64_t)*off, user_buf, len);
 
     if (not_copied) {
         printk(KERN_ERR "hdlnocgen_c5p_driver: %llu bytes of data failed to copy to kernel. No transfer\n", not_copied);
         return not_copied;
     }
 
-    mutex_lock(&task_write_mutex);
-    uint32_t task_fifo_free = ioread32(bar2_ptr + 0x8);
+    mutex_lock(&(device_array[dev_ind]->task_write_mutex));
+    uint32_t task_fifo_free = ioread32((device_array[dev_ind]->bar2_ptr) + 0x8);
+    uint32_t dmawr_status = ioread32((device_array[dev_ind]->bar2_ptr) + ((device_array[dev_ind]->dma_cap_addrs[channel]) + 0x18));
+    if (dmawr_status != 0) {
+        printk(KERN_INFO "hdlnocgen_c5p_driver: device %d BDF %x MINOR %u dmawr status %u\n", dev_ind, device_array[dev_ind]->bdf, channel, dmawr_status);
+    }
     if (task_fifo_free == 0) {
         printk(KERN_ERR "hdlnocgen_c5p_driver: Write to DMA channel %d fail - no free spaces in DMARD-FIFO\n", channel);
-        mutex_unlock(&task_write_mutex);
+        mutex_unlock(&(device_array[dev_ind]->task_write_mutex));
         return -ENOMEM;
     }
-    iowrite64((((uint64_t)(len-not_copied)) << 32) | (uint64_t)*off, bar2_ptr + 0x1008 + channel*0x10);
-    mutex_unlock(&task_write_mutex);
+    fsleep(10);
+    iowrite64((((uint64_t)(len-not_copied)) << 32) | (uint64_t)*off, (device_array[dev_ind]->bar2_ptr) + 0x1008 + channel*0x10);
+    mutex_unlock(&(device_array[dev_ind]->task_write_mutex));
     //printk(KERN_INFO "hdlnocgen_c5p_driver: Write to DMA channel %d command sent\n", channel);
 
-    uint32_t jiffies = wait_event_interruptible_timeout(dma_wq, dma_irq_wr_flags[channel] == 1, HZ*2);
+    uint32_t jiffies = wait_event_interruptible_timeout(dma_wq, (device_array[dev_ind]->dma_irq_wr_flags[channel]) == 1, HZ*2);
     if (!jiffies) {
-        printk(KERN_ERR "hdlnocgen_c5p_driver: Write to DMA channel %d timeout\n", channel);
-        uint32_t irq_status = ioread32(bar2_ptr + (dma_cap_addrs[channel] + 0x20));
+        printk(KERN_ERR "hdlnocgen_c5p_driver: Write to DMA device %d BDF %x MINOR %u timeout\n", dev_ind, device_array[dev_ind]->bdf, channel);
+        uint32_t irq_status = ioread32((device_array[dev_ind]->bar2_ptr) + ((device_array[dev_ind]->dma_cap_addrs[channel]) + 0x20));
         printk(KERN_ERR "hdlnocgen_c5p_driver: irq status %u\n", irq_status);
+        uint32_t dmawr_status = ioread32((device_array[dev_ind]->bar2_ptr) + ((device_array[dev_ind]->dma_cap_addrs[channel]) + 0x18));
+        printk(KERN_ERR "hdlnocgen_c5p_driver: dmawr status %u\n", dmawr_status);
         printk(KERN_ERR "hdlnocgen_c5p_driver: irq fired %u times\n", irq_fired);
         return -1;
     }
-    dma_irq_wr_flags[channel] = 0;
+    (device_array[dev_ind]->dma_irq_wr_flags[channel]) = 0;
 
     //printk(KERN_INFO "hdlnocgen_c5p_driver: Write to DMA channel %d finished successfully\n", channel);
 
@@ -256,21 +293,29 @@ static struct pci_driver hdlnocgen_dma_driver = {
 
 
 static irqreturn_t dma_finish(int irq, void *dev) {
-    int irq_index;
+    int dev_ind = -1;
+    int irq_index = -1;
 
-    for (int i = 0; i < dma_channel_count; i++) {
-        if (dma_irq_index[i] == irq) {
-            irq_index = i;
+    for (int i = 0; i < 16; i++) {
+        if (!device_array[i]) {
+            continue;
+        }
+        for (int j = 0; j < (device_array[i]->dma_channel_count); j++) {
+            if ((device_array[i]->dma_irq_index[j]) == irq) {
+                dev_ind = i;
+                irq_index = j;
+            }
         }
     }
-    uint32_t irq_status = ioread32(bar2_ptr + (dma_cap_addrs[irq_index] + 0x20));
+
+    uint32_t irq_status = ioread32((device_array[dev_ind]->bar2_ptr) + ((device_array[dev_ind]->dma_cap_addrs[irq_index]) + 0x20));
     if (((irq_status & 0x4) >> 2) == 1) {
-        iowrite32(0x1, bar2_ptr + (dma_cap_addrs[irq_index] + 0x20));
-        dma_irq_rd_flags[irq_index] = 1;
+        iowrite32(0x1, (device_array[dev_ind]->bar2_ptr) + ((device_array[dev_ind]->dma_cap_addrs[irq_index]) + 0x20));
+        (device_array[dev_ind]->dma_irq_rd_flags[irq_index]) = 1;
     }
     if (((irq_status & 0x8) >> 3) == 1) {
-        iowrite32(0x2, bar2_ptr + (dma_cap_addrs[irq_index] + 0x20));
-        dma_irq_wr_flags[irq_index] = 1;
+        iowrite32(0x2, (device_array[dev_ind]->bar2_ptr) + ((device_array[dev_ind]->dma_cap_addrs[irq_index]) + 0x20));
+        (device_array[dev_ind]->dma_irq_wr_flags[irq_index]) = 1;
     }
 
     irq_fired += 1;
@@ -280,12 +325,22 @@ static irqreturn_t dma_finish(int irq, void *dev) {
 }
 
 static irqreturn_t user_msix_pend(int irq, void *dev) {
-    for (int i = 0; i < dma_channel_count; i++) {
-        if (user_irq_index[i] == irq) {
-            user_irq_flags[i] = 1;
-            break;
+    int dev_ind;
+    int irq_index;
+
+    for (int i = 0; i < 16; i++) {
+        if (!device_array[i]) {
+            continue;
+        }
+        for (int j = 0; j < (device_array[i]->dma_channel_count); j++) {
+            if ((device_array[i]->user_irq_index[j]) == irq) {
+                dev_ind = i;
+                irq_index = j;
+                (device_array[dev_ind]->user_irq_flags[i]) = 1;
+            }
         }
     }
+
     return IRQ_HANDLED;
 }
 
@@ -294,9 +349,35 @@ static int hdlnocgen_dma_probe(struct pci_dev *pdev, const struct pci_device_id 
     pci_read_config_word(pdev, PCI_DEVICE_ID, &device);
     printk(KERN_INFO "hdlnocgen_c5p_driver: Device vid: 0x%X\n", vendor);
     printk(KERN_INFO "hdlnocgen_c5p_driver: Device pid: 0x%X\n", device);
+    printk(KERN_INFO "hdlnocgen_c5p_driver: BDF: %02x:%02x.%01x\n", pdev->bus->number, PCI_SLOT(pdev->devfn), PCI_FUNC(pdev->devfn));
 
-    mutex_init(&task_read_mutex);
-    mutex_init(&task_write_mutex);
+    if (hdlnocgen_device_count == 16) {
+        printk(KERN_ERR "hdlnocgen_c5p_driver: 16 devices already initialized. Failed to register\n");
+        return -ENOMEM;
+    }
+
+    printk(KERN_INFO "hdlnocgen_c5p_driver: Creating struct for the device and placing it in the array...\n");
+    struct hdlnocgen_device *device_struct = kzalloc(sizeof(struct hdlnocgen_device), GFP_KERNEL);
+    if (!device_struct) {
+        printk(KERN_ERR "hdlnocgen_c5p_driver: Failed to allocate device struct\n");
+        return -ENOMEM;
+    }
+    for (int i = 0; i < 16; i++) {
+        if (!device_array[i]) {
+            device_array[i] = device_struct;
+            hdlnocgen_device_count++;
+            printk(KERN_INFO "hdlnocgen_c5p_driver: New array index %d, device count %d, BDF: %x\n", i, hdlnocgen_device_count, (pdev->bus->number << 12) | (PCI_SLOT(pdev->devfn) << 4) | PCI_FUNC(pdev->devfn));
+            break;
+        } else {
+            printk(KERN_INFO "hdlnocgen_c5p_driver: Array index %d, BDF: %x\n", i, device_array[i]->bdf);
+        }
+    }
+    printk(KERN_INFO "hdlnocgen_c5p_driver: Success!\n");
+
+    device_struct->bdf = (pdev->bus->number << 12) | (PCI_SLOT(pdev->devfn) << 4) | PCI_FUNC(pdev->devfn);
+    
+    mutex_init(&(device_struct->task_read_mutex));
+    mutex_init(&(device_struct->task_write_mutex));
 
     // PCIe memory enable
     err = pci_enable_device_mem(pdev);
@@ -319,41 +400,43 @@ static int hdlnocgen_dma_probe(struct pci_dev *pdev, const struct pci_device_id 
     }
 
     // Get BAR[0] addresses
-    b0_start = pci_resource_start(pdev, 0);
-    b0_size = pci_resource_len(pdev, 0);
-    printk(KERN_INFO "hdlnocgen_c5p_driver: BAR[0]: 0x%llx-0x%llx\n", b0_start, b0_start + b0_size - 1);
+    device_struct->b0_start = pci_resource_start(pdev, 0);
+    device_struct->b0_size = pci_resource_len(pdev, 0);
+    printk(KERN_INFO "hdlnocgen_c5p_driver: BAR[0]: 0x%llx-0x%llx\n", device_struct->b0_start, device_struct->b0_start + device_struct->b0_size - 1);
     // Get BAR[2] addresses
-    b2_start = pci_resource_start(pdev, 2);
-    b2_size = pci_resource_len(pdev, 2);
-    printk(KERN_INFO "hdlnocgen_c5p_driver: BAR[2]: 0x%llx-0x%llx\n", b2_start, b2_start + b2_size - 1);
+    device_struct->b2_start = pci_resource_start(pdev, 2);
+    device_struct->b2_size = pci_resource_len(pdev, 2);
+    printk(KERN_INFO "hdlnocgen_c5p_driver: BAR[2]: 0x%llx-0x%llx\n", device_struct->b2_start, device_struct->b2_start + device_struct->b2_size - 1);
 
     // Remap BARs to memory
-    bar0_ptr = ioremap(b0_start, b0_size);
-    if (!bar0_ptr) {
+    device_struct->bar0_ptr = ioremap(device_struct->b0_start, device_struct->b0_size);
+    if (!(device_struct->bar0_ptr)) {
         printk(KERN_ERR "hdlnocgen_c5p_driver: Failed to ioremap BAR[0]...\n");
         err = -ENOMEM;
         goto pci_release_bar2;
     }
-    bar2_ptr = ioremap(b2_start, b2_size);
-    if (!bar2_ptr) {
+    device_struct->bar2_ptr = ioremap(device_struct->b2_start, device_struct->b2_size);
+    if (!(device_struct->bar2_ptr)) {
         printk(KERN_ERR "hdlnocgen_c5p_driver: Failed to ioremap BAR[2]...\n");
         err = -ENOMEM;
         goto unmap_bar0;
     }
+    printk(KERN_INFO "hdlnocgen_c5p_driver: ioremapped BAR[0] to %p\n", device_struct->bar0_ptr);
+    printk(KERN_INFO "hdlnocgen_c5p_driver: ioremapped BAR[2] to %p\n", device_struct->bar2_ptr);
 
     printk(KERN_INFO "hdlnocgen_c5p_driver: Extracting configuration info...\n");
-    dma_channel_count = ioread32(bar2_ptr) & 0xFFFF;
-    printk(KERN_INFO "hdlnocgen_c5p_driver: Extracting done. This DMA has %hu channels\n", dma_channel_count);
+    device_struct->dma_channel_count = ioread32(device_struct->bar2_ptr) & 0xFFFF;
+    printk(KERN_INFO "hdlnocgen_c5p_driver: Extracting done. This DMA has %hu channels\n", device_struct->dma_channel_count);
 
     // Register MSIs
-    printk(KERN_INFO "hdlnocgen_c5p_driver: Allocating %hu DMA and %hu user interrupts\n", dma_channel_count, dma_channel_count);
-    err = pci_alloc_irq_vectors(pdev, dma_channel_count*2, dma_channel_count*2, PCI_IRQ_MSIX);
+    printk(KERN_INFO "hdlnocgen_c5p_driver: Allocating %hu DMA and %hu user interrupts\n", device_struct->dma_channel_count, device_struct->dma_channel_count);
+    err = pci_alloc_irq_vectors(pdev, (device_struct->dma_channel_count)*2, (device_struct->dma_channel_count)*2, PCI_IRQ_MSIX);
     if (err < 0) {
         printk(KERN_ERR "hdlnocgen_c5p_driver: Failed to register PCIe interrupts\n");
         goto unmap_bar2;
     }
-    else if (err != dma_channel_count*2) {
-        printk(KERN_ERR "hdlnocgen_c5p_driver: Failed to allocate PCIe interrupts - %hu interrupts required, but %d alocated\n", dma_channel_count*2, err);
+    else if (err != (device_struct->dma_channel_count)*2) {
+        printk(KERN_ERR "hdlnocgen_c5p_driver: Failed to allocate PCIe interrupts - %hu interrupts required, but %d alocated\n", (device_struct->dma_channel_count)*2, err);
         goto msi_free;
     }
     printk(KERN_INFO "hdlnocgen_c5p_driver: Allocated %d interrupts using MSIXs\n", err);
@@ -367,166 +450,216 @@ static int hdlnocgen_dma_probe(struct pci_dev *pdev, const struct pci_device_id 
     }
 
     // Register DMA IRQ handlers
-    for (int i = 0; i < dma_channel_count; i++) {
+    for (int i = 0; i < (device_struct->dma_channel_count); i++) {
         // Set IRQ handler
-        dma_irq_index[i] = pci_irq_vector(pdev, i);
-        printk(KERN_INFO "hdlnocgen_c5p_driver: DMA IRQ for channel %d is %d\n", i, dma_irq_index[i]);
+        (device_struct->dma_irq_index[i]) = pci_irq_vector(pdev, i);
+        printk(KERN_INFO "hdlnocgen_c5p_driver: DMA IRQ for channel %d is %d\n", i, (device_struct->dma_irq_index[i]));
 
-        err = request_irq(dma_irq_index[i], dma_finish, IRQF_TRIGGER_RISING, DRIVER_NAME, NULL);
+        err = request_irq((device_struct->dma_irq_index[i]), dma_finish, IRQF_TRIGGER_RISING, DRIVER_NAME, NULL);
         if (err) {
             printk(KERN_INFO "hdlnocgen_c5p_driver: Failed to register DMA IRQ handler for channel %d\n", i);
             goto unregister_irq;
         }
         printk(KERN_INFO "hdlnocgen_c5p_driver: Registered IRQ handler for DMA channel %d\n", i);
-        printk(KERN_INFO "hdlnocgen_c5p_driver: Register read data - Interrupt address low %x\n", ioread32(bar0_ptr + i*16));
-        printk(KERN_INFO "hdlnocgen_c5p_driver: Register read data - Interrupt address high %x\n", ioread32(bar0_ptr + i*16 + 4));
+        printk(KERN_INFO "hdlnocgen_c5p_driver: Register read data - Interrupt address low %x\n", ioread32(device_struct->bar0_ptr + i*16));
+        printk(KERN_INFO "hdlnocgen_c5p_driver: Register read data - Interrupt address high %x\n", ioread32(device_struct->bar0_ptr + i*16 + 4));
         err_index = i + 1;
     }
 
     // Register user IRQ handlers
-    for (int i = dma_channel_count; i < dma_channel_count*2; i++) {
+    for (int i = (device_struct->dma_channel_count); i < (device_struct->dma_channel_count)*2; i++) {
         // Set IRQ handler
-        user_irq_index[i-dma_channel_count] = pci_irq_vector(pdev, i);
-        printk(KERN_INFO "hdlnocgen_c5p_driver: User IRQ for channel %d is %d\n", i-dma_channel_count, user_irq_index[i-dma_channel_count]);
+        (device_struct->user_irq_index[i-(device_struct->dma_channel_count)]) = pci_irq_vector(pdev, i);
+        printk(KERN_INFO "hdlnocgen_c5p_driver: User IRQ for channel %d is %d\n", i-(device_struct->dma_channel_count), (device_struct->user_irq_index[i-(device_struct->dma_channel_count)]));
 
-        err = request_irq(user_irq_index[i-dma_channel_count], user_msix_pend, IRQF_TRIGGER_RISING, DRIVER_NAME, NULL);
+        err = request_irq((device_struct->user_irq_index[i-(device_struct->dma_channel_count)]), user_msix_pend, IRQF_TRIGGER_RISING, DRIVER_NAME, NULL);
         if (err) {
-            printk(KERN_INFO "hdlnocgen_c5p_driver: Failed to register user IRQ handler for channel %d\n", i-dma_channel_count);
+            printk(KERN_INFO "hdlnocgen_c5p_driver: Failed to register user IRQ handler for channel %d\n", i-(device_struct->dma_channel_count));
             goto unregister_user_irq;
         }
-        printk(KERN_INFO "hdlnocgen_c5p_driver: Registered IRQ handler for user channel %d\n", i-dma_channel_count);
-        printk(KERN_INFO "hdlnocgen_c5p_driver: Register read data - Interrupt address low %x\n", ioread32(bar0_ptr + i*16));
-        printk(KERN_INFO "hdlnocgen_c5p_driver: Register read data - Interrupt address high %x\n", ioread32(bar0_ptr + i*16 + 4));
+        printk(KERN_INFO "hdlnocgen_c5p_driver: Registered IRQ handler for user channel %d\n", i-(device_struct->dma_channel_count));
+        printk(KERN_INFO "hdlnocgen_c5p_driver: Register read data - Interrupt address low %x\n", ioread32(device_struct->bar0_ptr + i*16));
+        printk(KERN_INFO "hdlnocgen_c5p_driver: Register read data - Interrupt address high %x\n", ioread32(device_struct->bar0_ptr + i*16 + 4));
         err_index = i + 1;
     }
 
     // Allocate DMA buffers
-    uint32_t next_struct_addr = (ioread32(bar2_ptr) & 0xFFFF0000) >> 16;
+    uint32_t next_struct_addr = (ioread32(device_struct->bar2_ptr) & 0xFFFF0000) >> 16;
     printk(KERN_INFO "hdlnocgen_c5p_driver: Channel 0 struct addr is 0x%x\n", next_struct_addr);
-    dma_cap_addrs[0] = next_struct_addr;
+    (device_struct->dma_cap_addrs[0]) = next_struct_addr;
 
-    for (int i = 0; i < dma_channel_count; i++) {
-        cpu_addr[i] = dma_alloc_coherent(&(pdev->dev), DMA_BUFFER_SIZE, &(dma_handle[i]), GFP_KERNEL);
-        if (!cpu_addr[i]) {
+    for (int i = 0; i < device_struct->dma_channel_count; i++) {
+        (device_struct->cpu_addr[i]) = dma_alloc_coherent(&(pdev->dev), DMA_BUFFER_SIZE, &(device_struct->dma_handle[i]), GFP_KERNEL);
+        if (!(device_struct->cpu_addr[i])) {
             printk(KERN_ERR "hdlnocgen_c5p_driver: Failed to allocate %llu bytes for DMA buffer channel %d\n", (uint64_t)DMA_BUFFER_SIZE, i);
             err = ENOENT;
             goto free_dma;
         }
-        printk(KERN_INFO "hdlnocgen_c5p_driver: Created %d bytes of dma bytes. Channel - %d, CPU addr - 0x%p, DMA addr - 0x%llx\n", DMA_BUFFER_SIZE, i, cpu_addr[i], dma_handle[i]);
+        printk(KERN_INFO "hdlnocgen_c5p_driver: Created %d bytes of dma bytes. Channel - %d, CPU addr - 0x%p, DMA addr - 0x%llx\n", DMA_BUFFER_SIZE, i, (device_struct->cpu_addr[i]), (device_struct->dma_handle[i]));
 
-        iowrite32(dma_handle[i], bar2_ptr + next_struct_addr + 4);
-        iowrite32(dma_handle[i] >> 32, bar2_ptr + next_struct_addr + 8);
+        iowrite32((device_struct->dma_handle[i]), (device_struct->bar2_ptr) + next_struct_addr + 4);
+        iowrite32((device_struct->dma_handle[i]) >> 32, (device_struct->bar2_ptr) + next_struct_addr + 8);
         printk(KERN_INFO "hdlnocgen_c5p_driver: Wrote DMA addr for channel %d\n", i);
-        printk(KERN_INFO "hdlnocgen_c5p_driver: Register read data - DMA addr low %x\n", ioread32(bar2_ptr + next_struct_addr + 4));
-        printk(KERN_INFO "hdlnocgen_c5p_driver: Register read data - DMA addr high %x\n", ioread32(bar2_ptr + next_struct_addr + 8));
+        printk(KERN_INFO "hdlnocgen_c5p_driver: Register read data - DMA addr low %x\n", ioread32((device_struct->bar2_ptr) + next_struct_addr + 4));
+        printk(KERN_INFO "hdlnocgen_c5p_driver: Register read data - DMA addr high %x\n", ioread32((device_struct->bar2_ptr) + next_struct_addr + 8));
 
-        next_struct_addr = ioread32(bar2_ptr + next_struct_addr);
+        next_struct_addr = ioread32((device_struct->bar2_ptr) + next_struct_addr);
         printk(KERN_INFO "hdlnocgen_c5p_driver: Channel %d struct addr is 0x%x\n", i+1, next_struct_addr);
-        dma_cap_addrs[i+1] = next_struct_addr;
+        (device_struct->dma_cap_addrs[i+1]) = next_struct_addr;
 
         err_index = i + 1;
     }
 
     // Driver device setup
-    err = alloc_chrdev_region(&driver_dev_nr, 0, MINORMASK + 1, "hdlnocgen_c5p_cdev"); // get major and minor numbers allocated
+    err = alloc_chrdev_region(&(device_struct->driver_dev_nr), 0, MINORMASK + 1, "hdlnocgen_c5p_cdev"); // get major and minor numbers allocated
     if (err) {
         printk(KERN_ERR "hdlnocgen_c5p_driver: Failed to reserve major and minor numbers\n");
         goto free_dma;
     }
-    cdev_init(&driver_cdev, &fops);
-    driver_cdev.owner = THIS_MODULE;
+    cdev_init(&(device_struct->driver_cdev), &fops);
+    (device_struct->driver_cdev).owner = THIS_MODULE;
 
-    err = cdev_add(&driver_cdev, driver_dev_nr, MINORMASK + 1);
+    err = cdev_add(&(device_struct->driver_cdev), (device_struct->driver_dev_nr), MINORMASK + 1);
     if (err) {
         printk(KERN_ERR "hdlnocgen_c5p_driver: Failed to create cdev\n");
         goto free_driver_dev_nr;
     }
-    printk(KERN_INFO "hdlnocgen_c5p_driver: Registered cdev with Major %d starting with Minor %d\n", MAJOR(driver_dev_nr), MINOR(driver_dev_nr)); // register cdev under these numbers
+    printk(KERN_INFO "hdlnocgen_c5p_driver: Registered cdev with Major %d starting with Minor %d\n", MAJOR(device_struct->driver_dev_nr), MINOR(device_struct->driver_dev_nr)); // register cdev under these numbers
 
-    driver_class = class_create("hdlnocgen_c5p_class");
-    if (!driver_class) {
-        printk(KERN_ERR "hdlnocgen_c5p_driver: Could not create class hdlnocgen_c5p_class\n");
+    char *class_name;
+    class_name = kasprintf(GFP_KERNEL, "hdlnocgen_%05x_class", device_struct->bdf);
+    if (!class_name) {
+        printk(KERN_ERR "hdlnocgen_c5p_driver: Failed to create name for the class\n");
+        goto free_driver_dev_nr;
+    }
+
+    device_struct->driver_class = class_create(class_name);
+    if (!(device_struct->driver_class)) {
+        printk(KERN_ERR "hdlnocgen_c5p_driver: Could not create class %s\n", class_name);
         err = -ENOMEM;
         goto delete_driver_cdev;
     }
-    driver_class->devnode = hdlnocgen_devnode;
-    printk(KERN_INFO "hdlnocgen_c5p_driver: Created class hdlnocgen_c5p_class\n");
+    device_struct->driver_class->devnode = hdlnocgen_devnode;
+    printk(KERN_INFO "hdlnocgen_c5p_driver: Created class %s\n", class_name);
+    
+    kfree(class_name);
 
-    for (int i = 0; i < dma_channel_count; i++) {
-        if (!device_create(driver_class, &(pdev->dev), driver_dev_nr+i, NULL, "hdlnocgen_c5p%d", i)) {
-            printk(KERN_ERR "hdlnocgen_c5p_driver: Could not create device file hdlnocgen_c5p%d\n", i);
+    for (int i = 0; i < device_struct->dma_channel_count; i++) {
+        if (!device_create(device_struct->driver_class, &(pdev->dev), (device_struct->driver_dev_nr)+i, NULL, "hdlnocgen_%05x_%d", device_struct->bdf, i)) {
+            printk(KERN_ERR "hdlnocgen_c5p_driver: Could not create device file hdlnocgen_%05x_%d", device_struct->bdf, i);
             err = -ENOMEM;
             goto destroy_device_file;
         }
-        printk(KERN_INFO "hdlnocgen_c5p_driver: Created device file hdlnocgen_c5p%d\n", i); // register cdev under these numbers
+        printk(KERN_INFO "hdlnocgen_c5p_driver: Created device file hdlnocgen_%05x_%d", device_struct->bdf, i); // register cdev under these numbers
 
         err_index = i + 1;
     }
 
-    if (!device_create(driver_class, &(pdev->dev), driver_dev_nr+dma_channel_count, NULL, "hdlnocgen_c5p_user_irq")) {
-        printk(KERN_ERR "hdlnocgen_c5p_driver: Could not create device file hdlnocgen_c5p_user_irq\n");
+    if (!device_create(device_struct->driver_class, &(pdev->dev), (device_struct->driver_dev_nr)+(device_struct->dma_channel_count), NULL, "hdlnocgen_%05x_user_irq", device_struct->bdf)) {
+        printk(KERN_ERR "hdlnocgen_c5p_driver: Could not create device file hdlnocgen_%05x_user_irq", device_struct->bdf);
         err = -ENOMEM;
         goto destroy_device_file;
     }
-    printk(KERN_INFO "hdlnocgen_c5p_driver: Created device file hdlnocgen_c5p_user_irq\n");
+    printk(KERN_INFO "hdlnocgen_c5p_driver: Created device file hdlnocgen_%05x_user_irq", device_struct->bdf);
 
-    if (!device_create(driver_class, &(pdev->dev), driver_dev_nr+dma_channel_count+1, NULL, "hdlnocgen_c5p_env_csr")) {
-        printk(KERN_ERR "hdlnocgen_c5p_driver: Could not create device file hdlnocgen_c5p_env_csr\n");
+    if (!device_create(device_struct->driver_class, &(pdev->dev), (device_struct->driver_dev_nr)+(device_struct->dma_channel_count)+1, NULL, "hdlnocgen_%05x_env_csr", device_struct->bdf)) {
+        printk(KERN_ERR "hdlnocgen_c5p_driver: Could not create device file hdlnocgen_%05x_env_csr", device_struct->bdf);
         err = -ENOMEM;
         goto destroy_user_irq_file;
     }
-    printk(KERN_INFO "hdlnocgen_c5p_driver: Created device file hdlnocgen_c5p_env_csr\n");
+    printk(KERN_INFO "hdlnocgen_c5p_driver: Created device file hdlnocgen_%05x_env_csr", device_struct->bdf);
 
-    if (!device_create(driver_class, &(pdev->dev), driver_dev_nr+dma_channel_count+2, NULL, "hdlnocgen_c5p_dma_csr")) {
-        printk(KERN_ERR "hdlnocgen_c5p_driver: Could not create device file hdlnocgen_c5p_dma_csr\n");
+    if (!device_create(device_struct->driver_class, &(pdev->dev), (device_struct->driver_dev_nr)+(device_struct->dma_channel_count)+2, NULL, "hdlnocgen_%05x_dma_csr", device_struct->bdf)) {
+        printk(KERN_ERR "hdlnocgen_c5p_driver: Could not create device file hdlnocgen_%05x_dma_csr", device_struct->bdf);
         err = -ENOMEM;
         goto destroy_env_csr_file;
     }
-    printk(KERN_INFO "hdlnocgen_c5p_driver: Created device file hdlnocgen_c5p_dma_csr\n");
+    printk(KERN_INFO "hdlnocgen_c5p_driver: Created device file hdlnocgen_%05x_dma_csr", device_struct->bdf);
 
     // Set PCIe as master
     pci_set_master(pdev);
     printk(KERN_INFO "hdlnocgen_c5p_driver: Bus mastered by PCIe device\n");
 
+    printk(KERN_INFO "hdlnocgen_c5p_driver: dma_irq_index: \n");
+    for (int i = 0; i < 16; i++) {
+        printk(KERN_CONT "%d ", device_struct->dma_irq_index[i]);
+    }
+    printk(KERN_INFO "hdlnocgen_c5p_driver: dma_irq_rd_flags: \n");
+    for (int i = 0; i < 16; i++) {
+        printk(KERN_CONT "%d ", device_struct->dma_irq_rd_flags[i]);
+    }
+    printk(KERN_INFO "hdlnocgen_c5p_driver: dma_irq_wr_flags: \n");
+    for (int i = 0; i < 16; i++) {
+        printk(KERN_CONT "%d ", device_struct->dma_irq_wr_flags[i]);
+    }
+    printk(KERN_INFO "hdlnocgen_c5p_driver: dma_cap_addrs: \n");
+    for (int i = 0; i < 16; i++) {
+        printk(KERN_CONT "%llx ", device_struct->dma_cap_addrs[i]);
+    }
+    printk(KERN_INFO "hdlnocgen_c5p_driver: user_irq_index: \n");
+    for (int i = 0; i < 16; i++) {
+        printk(KERN_CONT "%d ", device_struct->user_irq_index[i]);
+    }
+    printk(KERN_INFO "hdlnocgen_c5p_driver: user_irq_flags: \n");
+    for (int i = 0; i < 16; i++) {
+        printk(KERN_CONT "%d ", device_struct->user_irq_flags[i]);
+    }
+    printk(KERN_INFO "hdlnocgen_c5p_driver: cpu_addr: \n");
+    for (int i = 0; i < 16; i++) {
+        printk(KERN_CONT "%p ", device_struct->cpu_addr[i]);
+    }
+    printk(KERN_INFO "hdlnocgen_c5p_driver: dma_handle: \n");
+    for (int i = 0; i < 16; i++) {
+        printk(KERN_CONT "%llx ", device_struct->dma_handle[i]);
+    }
+
+    for (int i = 0; i < 16; i++) {
+        if (!device_array[i]) {
+            printk(KERN_INFO "hdlnocgen_c5p_driver: Array index %d empty\n", i);
+        } else {
+            printk(KERN_INFO "hdlnocgen_c5p_driver: Array index %d, BDF: %x\n", i, device_array[i]->bdf);
+        }
+    }
+
     return 0;
 
 destroy_env_csr_file:
-    device_destroy(driver_class, driver_dev_nr+dma_channel_count+1);
+    device_destroy(device_struct->driver_class, (device_struct->driver_dev_nr)+(device_struct->dma_channel_count)+1);
 destroy_user_irq_file:
-    device_destroy(driver_class, driver_dev_nr+dma_channel_count);
+    device_destroy(device_struct->driver_class, (device_struct->driver_dev_nr)+(device_struct->dma_channel_count));
 destroy_device_file:
     for (int i = 0; i < err_index; i++) {
-        device_destroy(driver_class, driver_dev_nr+i);
+        device_destroy(device_struct->driver_class, (device_struct->driver_dev_nr)+i);
     }
-    err_index = dma_channel_count;
+    err_index = device_struct->dma_channel_count;
 //delete_driver_class:
-	class_unregister(driver_class);
-	class_destroy(driver_class);
+	class_unregister(device_struct->driver_class);
+	class_destroy(device_struct->driver_class);
 delete_driver_cdev:
-	cdev_del(&driver_cdev);
+	cdev_del(&(device_struct->driver_cdev));
 free_driver_dev_nr:
-    unregister_chrdev_region(driver_dev_nr, MINORMASK + 1);
+    unregister_chrdev_region(device_struct->driver_dev_nr, MINORMASK + 1);
 free_dma:
     for (int i = 0; i < err_index; i++) {
-        dma_free_coherent(&(pdev->dev), DMA_BUFFER_SIZE, cpu_addr[i], dma_handle[i]);
+        dma_free_coherent(&(pdev->dev), DMA_BUFFER_SIZE, (device_struct->cpu_addr[i]), (device_struct->dma_handle[i]));
     }
-    err_index = dma_channel_count;
+    err_index = (device_struct->dma_channel_count);
 unregister_user_irq:
     for (int i = 0; i < err_index; i++) {
-        free_irq(user_irq_index[i], NULL);
+        free_irq((device_struct->user_irq_index[i]), NULL);
     }
-    err_index = dma_channel_count;
+    err_index = (device_struct->dma_channel_count);
 unregister_irq:
     for (int i = 0; i < err_index; i++) {
-        free_irq(dma_irq_index[i], NULL);
+        free_irq((device_struct->dma_irq_index[i]), NULL);
     }
-    err_index = dma_channel_count;
+    err_index = (device_struct->dma_channel_count);
 msi_free:
     pci_free_irq_vectors(pdev);
 unmap_bar2:
-    iounmap(bar2_ptr);
+    iounmap(device_struct->bar2_ptr);
 unmap_bar0:
-    iounmap(bar0_ptr);
+    iounmap(device_struct->bar0_ptr);
 pci_release_bar2:
     pci_release_region(pdev, 2);
 pci_release_bar0:
@@ -534,61 +667,90 @@ pci_release_bar0:
 pci_disable:
     pci_disable_device(pdev);
 destroy_mutex:
-    mutex_destroy(&task_write_mutex);
-    mutex_destroy(&task_read_mutex);
+    mutex_destroy(&(device_struct->task_write_mutex));
+    mutex_destroy(&(device_struct->task_read_mutex));
+
+    for (int i = 0; i < 16; i++) {
+        if (device_array[i] == device_struct) {
+            device_array[i] = NULL;
+            break;
+        }
+    }
+    kfree(device_struct);
+    hdlnocgen_device_count--;
 
     return err;
 }
 
 static void hdlnocgen_dma_remove(struct pci_dev *pdev) {
+    printk(KERN_INFO "hdlnocgen_c5p_driver: PCIe device removal...\n");
+
+    int dev_arr_id;
+
+    for (int i = 0; i < 16; i++) {
+        if (!device_array[i]) {
+            continue;
+        }
+
+        if (device_array[i]->bdf == ((pdev->bus->number << 12) | (PCI_SLOT(pdev->devfn) << 4) | PCI_FUNC(pdev->devfn))) {
+            dev_arr_id = i;
+            printk(KERN_INFO "hdlnocgen_c5p_driver: Device %d in the array\n", i);
+            break;
+        }
+        
+        if (i == 15) {
+            printk(KERN_ERR "hdlnocgen_c5p_driver: BDF: %x. Device not found in the array. Bad exit\n", ((pdev->bus->number << 12) | (PCI_SLOT(pdev->devfn) << 4) | PCI_FUNC(pdev->devfn)));
+            return;
+        }
+    }
     pci_clear_master(pdev);
     printk(KERN_INFO "hdlnocgen_c5p_driver: PCIe device unmastered\n");
 
-    device_destroy(driver_class, driver_dev_nr+dma_channel_count+2);
+    device_destroy(device_array[dev_arr_id]->driver_class, (device_array[dev_arr_id]->driver_dev_nr)+(device_array[dev_arr_id]->dma_channel_count)+2);
     printk(KERN_INFO "hdlnocgen_c5p_driver: Deleted file hdlnocgen_c5p_dma_csr\n");
 
-    device_destroy(driver_class, driver_dev_nr+dma_channel_count+1);
+    device_destroy(device_array[dev_arr_id]->driver_class, (device_array[dev_arr_id]->driver_dev_nr)+(device_array[dev_arr_id]->dma_channel_count)+1);
     printk(KERN_INFO "hdlnocgen_c5p_driver: Deleted file hdlnocgen_c5p_env_csr\n");
 
-    device_destroy(driver_class, driver_dev_nr+dma_channel_count);
+    device_destroy(device_array[dev_arr_id]->driver_class, (device_array[dev_arr_id]->driver_dev_nr)+(device_array[dev_arr_id]->dma_channel_count));
     printk(KERN_INFO "hdlnocgen_c5p_driver: Deleted file hdlnocgen_c5p_user_irq\n");
 
-    for (int i = 0; i < dma_channel_count; i++) {
-        device_destroy(driver_class, driver_dev_nr+i);
+    for (int i = 0; i < device_array[dev_arr_id]->dma_channel_count; i++) {
+        device_destroy(device_array[dev_arr_id]->driver_class, (device_array[dev_arr_id]->driver_dev_nr)+i);
         printk(KERN_INFO "hdlnocgen_c5p_driver: Deleted file hdlnocgen_c5p%d\n", i);
     }
 
-	class_unregister(driver_class);
-	class_destroy(driver_class);
+	class_unregister(device_array[dev_arr_id]->driver_class);
+	class_destroy(device_array[dev_arr_id]->driver_class);
     printk(KERN_INFO "hdlnocgen_c5p_driver: Deleted cdev class\n");
 
-	cdev_del(&driver_cdev);
+	cdev_del(&(device_array[dev_arr_id]->driver_cdev));
     printk(KERN_INFO "hdlnocgen_c5p_driver: Deleted driver cdev\n");
 
-    unregister_chrdev_region(driver_dev_nr, MINORMASK + 1);
+    unregister_chrdev_region(device_array[dev_arr_id]->driver_dev_nr, MINORMASK + 1);
     printk(KERN_INFO "hdlnocgen_c5p_driver: Unregistered devnr region\n");
 
-    for (int i = 0; i < dma_channel_count; i++) {
-        dma_free_coherent(&(pdev->dev), DMA_BUFFER_SIZE, cpu_addr[i], dma_handle[i]);
+    for (int i = 0; i < (device_array[dev_arr_id]->dma_channel_count); i++) {
+        dma_free_coherent(&(pdev->dev), DMA_BUFFER_SIZE, (device_array[dev_arr_id]->cpu_addr[i]), (device_array[dev_arr_id]->dma_handle[i]));
     }
     printk(KERN_INFO "hdlnocgen_c5p_driver: DMA buffers freed\n");
 
-    for (int i = 0; i < dma_channel_count; i++) {
-        free_irq(dma_irq_index[i], NULL);
+    for (int i = 0; i < (device_array[dev_arr_id]->dma_channel_count); i++) {
+        free_irq(device_array[dev_arr_id]->dma_irq_index[i], NULL);
     }
     printk(KERN_INFO "hdlnocgen_c5p_driver: Freed IRQ handlers\n");
 
-    for (int i = 0; i < dma_channel_count; i++) {
-        free_irq(user_irq_index[i], NULL);
+    for (int i = 0; i < (device_array[dev_arr_id]->dma_channel_count); i++) {
+        free_irq(device_array[dev_arr_id]->user_irq_index[i], NULL);
     }
 
     pci_free_irq_vectors(pdev);
     printk(KERN_INFO "hdlnocgen_c5p_driver: PCIe MSIXs released\n");
 
-    iounmap(bar2_ptr);
+    iounmap(device_array[dev_arr_id]->bar2_ptr);
     printk(KERN_INFO "hdlnocgen_c5p_driver: BAR[2] unmapped\n");
 
-    iounmap(bar0_ptr);
+    iounmap(device_array[dev_arr_id]->bar0_ptr);
     printk(KERN_INFO "hdlnocgen_c5p_driver: BAR[0] unmapped\n");
 
     pci_release_region(pdev, 2);
@@ -600,13 +762,25 @@ static void hdlnocgen_dma_remove(struct pci_dev *pdev) {
     pci_disable_device(pdev);
     printk(KERN_INFO "hdlnocgen_c5p_driver: PCIe device disabled\n");
 
-    mutex_destroy(&task_write_mutex);
-    mutex_destroy(&task_read_mutex);
+    mutex_destroy(&(device_array[dev_arr_id]->task_write_mutex));
+    mutex_destroy(&(device_array[dev_arr_id]->task_read_mutex));
     printk(KERN_INFO "hdlnocgen_c5p_driver: Mutexes destroyed\n");
 
     printk(KERN_INFO "hdlnocgen_c5p_driver: User IRQs pending: ");
-    for (int i = 0; i < dma_channel_count; i++) {
-        printk(KERN_CONT "%d ", user_irq_flags[i]);
+    for (int i = 0; i < (device_array[dev_arr_id]->dma_channel_count); i++) {
+        printk(KERN_CONT "%d ", (device_array[dev_arr_id]->user_irq_flags[i]));
+    }
+
+    kfree(device_array[dev_arr_id]);
+    device_array[dev_arr_id] = NULL;
+    hdlnocgen_device_count--;
+
+    for (int i = 0; i < 16; i++) {
+        if (!device_array[i]) {
+            printk(KERN_INFO "hdlnocgen_c5p_driver: Array index %d empty\n", i);
+        } else {
+            printk(KERN_INFO "hdlnocgen_c5p_driver: Array index %d, BDF: %x\n", i, device_array[i]->bdf);
+        }
     }
 
 }
