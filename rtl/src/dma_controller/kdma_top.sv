@@ -136,14 +136,16 @@ module kdma_top #(
     logic [31:0] msix_data  [MSIX_COUNT*3];
     logic [63:0] msix_addrs [MSIX_COUNT*3];
 
-    logic [21:0]                  bytecount_wr    [DMA_CHANNEL_COUNT];
-    logic [21:0]                  offset_wr       [DMA_CHANNEL_COUNT];
-    logic [21:0]                  bytecount_rd    [DMA_CHANNEL_COUNT];
-    logic [21:0]                  offset_rd       [DMA_CHANNEL_COUNT];
-    logic [DMA_CHANNEL_COUNT-1:0] btcnt_wr_swmod                     ;
-    logic [DMA_CHANNEL_COUNT-1:0] ofst_wr_swmod                      ;
-    logic [DMA_CHANNEL_COUNT-1:0] btcnt_rd_swmod                     ;
-    logic [DMA_CHANNEL_COUNT-1:0] ofst_rd_swmod                      ;
+    logic [21:0]                  bytecount_wr_data  [DMA_CHANNEL_COUNT];
+    logic [21:0]                  offset_wr_data     [DMA_CHANNEL_COUNT];
+    logic [21:0]                  bytecount_rd_data  [DMA_CHANNEL_COUNT];
+    logic [21:0]                  offset_rd_data     [DMA_CHANNEL_COUNT];
+    logic [21:0]                  bytecount_wr_biten [DMA_CHANNEL_COUNT];
+    logic [21:0]                  offset_wr_biten    [DMA_CHANNEL_COUNT];
+    logic [21:0]                  bytecount_rd_biten [DMA_CHANNEL_COUNT];
+    logic [21:0]                  offset_rd_biten    [DMA_CHANNEL_COUNT];
+    logic [DMA_CHANNEL_COUNT-1:0] valid                                 ;
+    logic [DMA_CHANNEL_COUNT-1:0] ready                                 ;
 
     logic                               dma_task_valid_wr  ;
     logic                               dma_task_ready_wr  ;
@@ -238,27 +240,28 @@ module kdma_top #(
     kdma_decoder_flatten #(
         .DMA_CHANNEL_COUNT (DMA_CHANNEL_COUNT)
     ) u_kdma_decoder_flatten (
-        .clk              (clk           ),
-        .rst_n            (rst_n         ),
+        .clk                  (clk               ),
+        .rst_n                (rst_n             ),
 
-        .bar_psel_i       (dec_psel_i    ),
-        .bar_penable_i    (dec_penable_i ),
-        .bar_pready_o     (dec_pready_o  ),
-        .bar_paddr_i      (dec_paddr_i   ),
-        .bar_pwrite_i     (dec_pwrite_i  ),
-        .bar_pwdata_i     (dec_pwdata_i  ),
-        .bar_pstrb_i      (dec_pstrb_i   ),
-        .bar_prdata_o     (dec_prdata_o  ),
+        .bar_psel_i           (dec_psel_i        ),
+        .bar_penable_i        (dec_penable_i     ),
+        .bar_pready_o         (dec_pready_o      ),
+        .bar_paddr_i          (dec_paddr_i       ),
+        .bar_pwrite_i         (dec_pwrite_i      ),
+        .bar_pwdata_i         (dec_pwdata_i      ),
+        .bar_pstrb_i          (dec_pstrb_i       ),
+        .bar_prdata_o         (dec_prdata_o      ),
 
-        .bytecount_wr_o   (bytecount_wr  ),
-        .offset_wr_o      (offset_wr     ),
-        .bytecount_rd_o   (bytecount_rd  ),
-        .offset_rd_o      (offset_rd     ),
-
-        .btcnt_wr_swmod_o (btcnt_wr_swmod),
-        .ofst_wr_swmod_o  (ofst_wr_swmod ),
-        .btcnt_rd_swmod_o (btcnt_rd_swmod),
-        .ofst_rd_swmod_o  (ofst_rd_swmod )
+        .bytecount_wr_data_o  (bytecount_wr_data ),
+        .offset_wr_data_o     (offset_wr_data    ),
+        .bytecount_rd_data_o  (bytecount_rd_data ),
+        .offset_rd_data_o     (offset_rd_data    ),
+        .bytecount_wr_biten_o (bytecount_wr_biten),
+        .offset_wr_biten_o    (offset_wr_biten   ),
+        .bytecount_rd_biten_o (bytecount_rd_biten),
+        .offset_rd_biten_o    (offset_rd_biten   ),
+        .valid_o              (valid             ),
+        .ready_i              (ready             )
     );
 
     kdma_decoder #(
@@ -266,24 +269,26 @@ module kdma_top #(
         .DMA_OFFFSET_WIDTH (DMA_OFFFSET_WIDTH),
         .DMA_BYTES_WIDTH   (DMA_BYTES_WIDTH  )
     ) u_kdma_decoder (
-        .clk                (clk                ),
-        .rst_n              (dma_resetn         ),
+        .clk                  (clk                ),
+        .rst_n                (dma_resetn         ),
 
-        .bytecount_wr_i     (bytecount_wr       ),
-        .offset_wr_i        (offset_wr          ),
-        .bytecount_rd_i     (bytecount_rd       ),
-        .offset_rd_i        (offset_rd          ),
-        .btcnt_wr_swmod_i   (btcnt_wr_swmod     ),
-        .ofst_wr_swmod_i    (ofst_wr_swmod      ),
-        .btcnt_rd_swmod_i   (btcnt_rd_swmod     ),
-        .ofst_rd_swmod_i    (ofst_rd_swmod      ),
+        .bytecount_wr_data_i  (bytecount_wr_data  ),
+        .offset_wr_data_i     (offset_wr_data     ),
+        .bytecount_rd_data_i  (bytecount_rd_data  ),
+        .offset_rd_data_i     (offset_rd_data     ),
+        .bytecount_wr_biten_i (bytecount_wr_biten ),
+        .offset_wr_biten_i    (offset_wr_biten    ),
+        .bytecount_rd_biten_i (bytecount_rd_biten ),
+        .offset_rd_biten_i    (offset_rd_biten    ),
+        .valid_i              (valid              ),
+        .ready_o              (ready              ),
 
-        .dma_task_valid_o   (dma_task_valid_wr  ),
-        .dma_task_ready_i   (dma_task_ready_wr  ),
-        .dma_task_channel_o (dma_task_channel_wr),
-        .dma_task_burst_o   (dma_task_burst_wr  ),
-        .dma_task_offset_o  (dma_task_offset_wr ),
-        .dma_task_write_o   (dma_task_write_wr  )
+        .dma_task_valid_o     (dma_task_valid_wr  ),
+        .dma_task_ready_i     (dma_task_ready_wr  ),
+        .dma_task_channel_o   (dma_task_channel_wr),
+        .dma_task_burst_o     (dma_task_burst_wr  ),
+        .dma_task_offset_o    (dma_task_offset_wr ),
+        .dma_task_write_o     (dma_task_write_wr  )
     );
 
     kdma_task_transport #(

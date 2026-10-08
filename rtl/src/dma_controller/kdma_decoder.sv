@@ -6,60 +6,47 @@ module kdma_decoder #(
     parameter DMA_BURST_WIDTH         = DMA_BYTES_WIDTH - 4                                   ,
     parameter DMA_CHANNEL_COUNT_WIDTH = DMA_CHANNEL_COUNT == 1 ? 1 : $clog2(DMA_CHANNEL_COUNT)
 ) (
-    input  logic                               clk                                  ,
-    input  logic                               rst_n                                ,
+    input  logic                               clk                                     ,
+    input  logic                               rst_n                                   ,
 
-    input  logic [DMA_BYTES_WIDTH-1:0]         bytecount_wr_i    [DMA_CHANNEL_COUNT],
-    input  logic [DMA_OFFFSET_WIDTH-1:0]       offset_wr_i       [DMA_CHANNEL_COUNT],
-    input  logic [DMA_BYTES_WIDTH-1:0]         bytecount_rd_i    [DMA_CHANNEL_COUNT],
-    input  logic [DMA_OFFFSET_WIDTH-1:0]       offset_rd_i       [DMA_CHANNEL_COUNT],
-    input  logic [DMA_CHANNEL_COUNT-1:0]       btcnt_wr_swmod_i                     ,
-    input  logic [DMA_CHANNEL_COUNT-1:0]       ofst_wr_swmod_i                      ,
-    input  logic [DMA_CHANNEL_COUNT-1:0]       btcnt_rd_swmod_i                     ,
-    input  logic [DMA_CHANNEL_COUNT-1:0]       ofst_rd_swmod_i                      ,
+    input  logic [21:0]                        bytecount_wr_data_i  [DMA_CHANNEL_COUNT],
+    input  logic [21:0]                        offset_wr_data_i     [DMA_CHANNEL_COUNT],
+    input  logic [21:0]                        bytecount_rd_data_i  [DMA_CHANNEL_COUNT],
+    input  logic [21:0]                        offset_rd_data_i     [DMA_CHANNEL_COUNT],
+    input  logic [21:0]                        bytecount_wr_biten_i [DMA_CHANNEL_COUNT],
+    input  logic [21:0]                        offset_wr_biten_i    [DMA_CHANNEL_COUNT],
+    input  logic [21:0]                        bytecount_rd_biten_i [DMA_CHANNEL_COUNT],
+    input  logic [21:0]                        offset_rd_biten_i    [DMA_CHANNEL_COUNT],
+    input  logic [DMA_CHANNEL_COUNT-1:0]       valid_i                                 ,
+    output logic [DMA_CHANNEL_COUNT-1:0]       ready_o                                 ,
 
-    output logic                               dma_task_valid_o                     ,
-    input  logic                               dma_task_ready_i                     ,
-    output logic [DMA_CHANNEL_COUNT_WIDTH-1:0] dma_task_channel_o                   ,
-    output logic [DMA_BURST_WIDTH-1:0]         dma_task_burst_o                     ,
-    output logic [DMA_OFFFSET_WIDTH-1:0]       dma_task_offset_o                    ,
-    output logic                               dma_task_write_o                     
+    output logic                               dma_task_valid_o                        ,
+    input  logic                               dma_task_ready_i                        ,
+    output logic [DMA_CHANNEL_COUNT_WIDTH-1:0] dma_task_channel_o                      ,
+    output logic [DMA_BURST_WIDTH-1:0]         dma_task_burst_o                        ,
+    output logic [DMA_OFFFSET_WIDTH-1:0]       dma_task_offset_o                       ,
+    output logic                               dma_task_write_o                        
 );
 
     logic [DMA_CHANNEL_COUNT_WIDTH-1:0] wr_decoded, rd_decoded;
-
-    logic [DMA_CHANNEL_COUNT-1:0] btcnt_wr_swmod_ff;
-    logic [DMA_CHANNEL_COUNT-1:0] ofst_wr_swmod_ff ;
-    logic [DMA_CHANNEL_COUNT-1:0] btcnt_rd_swmod_ff;
-    logic [DMA_CHANNEL_COUNT-1:0] ofst_rd_swmod_ff ;
-
-    always_ff @(posedge clk or negedge rst_n) begin
-        if (!rst_n) begin
-            btcnt_wr_swmod_ff <= '0;
-            ofst_wr_swmod_ff  <= '0;
-            btcnt_rd_swmod_ff <= '0;
-            ofst_rd_swmod_ff  <= '0;
-        end
-        else begin
-            btcnt_wr_swmod_ff <= btcnt_wr_swmod_i;
-            ofst_wr_swmod_ff  <= ofst_wr_swmod_i ;
-            btcnt_rd_swmod_ff <= btcnt_rd_swmod_i;
-            ofst_rd_swmod_ff  <= ofst_rd_swmod_i ;
-        end
-    end
+    logic wr_valid, rd_valid;
 
     always_comb begin
         wr_decoded = '0;
+        wr_valid = '0;
         for (int i = 0; i < DMA_CHANNEL_COUNT; i++) begin
-            if (btcnt_wr_swmod_ff[i] && ofst_wr_swmod_ff) begin
-                wr_decoded |= i;
+            if (valid_i[i] && (&bytecount_wr_biten_i[i] && &offset_wr_biten_i[i])) begin
+                wr_decoded = i;
+                wr_valid = '1;
             end
         end
         
         rd_decoded = '0;
+        rd_valid = '0;
         for (int i = 0; i < DMA_CHANNEL_COUNT; i++) begin
-            if (btcnt_rd_swmod_ff[i] && ofst_rd_swmod_ff) begin
-                rd_decoded |= i;
+            if (valid_i[i] && (&bytecount_rd_biten_i[i] && &offset_rd_biten_i[i])) begin
+                rd_decoded = i;
+                rd_valid = '1;
             end
         end
     end
@@ -117,10 +104,10 @@ module kdma_decoder #(
                 state_next = IDLE;
             end
             IDLE: begin
-                if (btcnt_wr_swmod_ff & ofst_wr_swmod_ff) begin
+                if (wr_valid) begin
                     state_next = GENERATE_DMAWR;
                 end
-                else if (btcnt_rd_swmod_ff & ofst_rd_swmod_ff) begin
+                else if (rd_valid) begin
                     state_next = GENERATE_DMARD;
                 end
                 else begin
@@ -143,23 +130,27 @@ module kdma_decoder #(
         dma_task_offset_next  = dma_task_offset ;
         dma_task_write_next   = dma_task_write  ;
 
+        ready_o = '0;
+
         case (state)
             RESET  : begin
             end
             IDLE: begin
-                if (btcnt_wr_swmod_ff & ofst_wr_swmod_ff) begin
-                    dma_task_valid_next   = '1                             ;
-                    dma_task_channel_next = wr_decoded                     ;
-                    dma_task_burst_next   = bytecount_wr_i[wr_decoded] >> 4;
-                    dma_task_offset_next  = offset_wr_i   [wr_decoded]     ;
-                    dma_task_write_next   = '1                             ;
+                ready_o = valid_i;
+
+                if (wr_valid) begin
+                    dma_task_valid_next   = '1                                  ;
+                    dma_task_channel_next = wr_decoded                          ;
+                    dma_task_burst_next   = bytecount_wr_data_i[wr_decoded] >> 4;
+                    dma_task_offset_next  = offset_wr_data_i   [wr_decoded]     ;
+                    dma_task_write_next   = '1                                  ;
                 end
-                else if (btcnt_rd_swmod_ff & ofst_rd_swmod_ff) begin
-                    dma_task_valid_next   = '1                             ;
-                    dma_task_channel_next = rd_decoded                     ;
-                    dma_task_burst_next   = bytecount_rd_i[rd_decoded] >> 4;
-                    dma_task_offset_next  = offset_rd_i   [rd_decoded]     ;
-                    dma_task_write_next   = '0                             ;
+                else if (rd_valid) begin
+                    dma_task_valid_next   = '1                                  ;
+                    dma_task_channel_next = rd_decoded                          ;
+                    dma_task_burst_next   = bytecount_rd_data_i[rd_decoded] >> 4;
+                    dma_task_offset_next  = offset_rd_data_i   [rd_decoded]     ;
+                    dma_task_write_next   = '0                                  ;
                 end
                 else begin
                     dma_task_valid_next   = '0;
@@ -167,6 +158,7 @@ module kdma_decoder #(
             end
             GENERATE_DMAWR, GENERATE_DMARD: begin
                 dma_task_valid_next = '0;
+                ready_o = '0;
             end
             default: begin
             end

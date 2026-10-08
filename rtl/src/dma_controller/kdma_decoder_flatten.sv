@@ -3,29 +3,35 @@ import kdma_decoder_am_pkg::*;
 module kdma_decoder_flatten #(
     parameter DMA_CHANNEL_COUNT = 8
 ) (
-    input  logic                         clk                                  ,
-    input  logic                         rst_n                                ,
+    input  logic                         clk                                     ,
+    input  logic                         rst_n                                   ,
 
-    input  logic                         bar_psel_i                           ,
-    input  logic                         bar_penable_i                        ,
-    output logic                         bar_pready_o                         ,
-    input  logic [63:0]                  bar_paddr_i                          ,
-    input  logic                         bar_pwrite_i                         ,
-    input  logic [127:0]                 bar_pwdata_i                         ,
-    input  logic [15:0]                  bar_pstrb_i                          ,
-    output logic [127:0]                 bar_prdata_o                         ,
+    input  logic                         bar_psel_i                              ,
+    input  logic                         bar_penable_i                           ,
+    output logic                         bar_pready_o                            ,
+    input  logic [63:0]                  bar_paddr_i                             ,
+    input  logic                         bar_pwrite_i                            ,
+    input  logic [127:0]                 bar_pwdata_i                            ,
+    input  logic [15:0]                  bar_pstrb_i                             ,
+    output logic [127:0]                 bar_prdata_o                            ,
 
-    output logic [21:0]                  bytecount_wr_o    [DMA_CHANNEL_COUNT],
-    output logic [21:0]                  offset_wr_o       [DMA_CHANNEL_COUNT],
-    output logic [21:0]                  bytecount_rd_o    [DMA_CHANNEL_COUNT],
-    output logic [21:0]                  offset_rd_o       [DMA_CHANNEL_COUNT],
+    output logic [21:0]                  bytecount_wr_data_o  [DMA_CHANNEL_COUNT],
+    output logic [21:0]                  offset_wr_data_o     [DMA_CHANNEL_COUNT],
+    output logic [21:0]                  bytecount_rd_data_o  [DMA_CHANNEL_COUNT],
+    output logic [21:0]                  offset_rd_data_o     [DMA_CHANNEL_COUNT],
 
-    output logic [DMA_CHANNEL_COUNT-1:0] btcnt_wr_swmod_o                     ,
-    output logic [DMA_CHANNEL_COUNT-1:0] ofst_wr_swmod_o                      ,
-    output logic [DMA_CHANNEL_COUNT-1:0] btcnt_rd_swmod_o                     ,
-    output logic [DMA_CHANNEL_COUNT-1:0] ofst_rd_swmod_o                      
+    output logic [21:0]                  bytecount_wr_biten_o [DMA_CHANNEL_COUNT],
+    output logic [21:0]                  offset_wr_biten_o    [DMA_CHANNEL_COUNT],
+    output logic [21:0]                  bytecount_rd_biten_o [DMA_CHANNEL_COUNT],
+    output logic [21:0]                  offset_rd_biten_o    [DMA_CHANNEL_COUNT],
+
+    output logic [DMA_CHANNEL_COUNT-1:0] valid_o                                 ,
+    input  logic [DMA_CHANNEL_COUNT-1:0] ready_i                                 
+
+
 );
 
+kdma_decoder_am__in_t  hwif_in;
 kdma_decoder_am__out_t hwif_out;
 
 apb4_intf #(
@@ -51,14 +57,20 @@ generate
 
     for (i = 0; i < DMA_CHANNEL_COUNT; i++) begin : dma_msix
         always_comb begin
-            bytecount_wr_o[i]   = hwif_out.DMA_TASK_REG[i].BYTECNT_WR.value;
-            offset_wr_o[i]      = hwif_out.DMA_TASK_REG[i].OFFSET_WR.value;
-            bytecount_rd_o[i]   = hwif_out.DMA_TASK_REG[i].BYTECNT_RD.value;
-            offset_rd_o[i]      = hwif_out.DMA_TASK_REG[i].OFFSET_RD.value;
-            btcnt_wr_swmod_o[i] = hwif_out.DMA_TASK_REG[i].BYTECNT_WR.swmod;
-            ofst_wr_swmod_o[i]  = hwif_out.DMA_TASK_REG[i].OFFSET_WR.swmod;
-            btcnt_rd_swmod_o[i] = hwif_out.DMA_TASK_REG[i].BYTECNT_RD.swmod;
-            ofst_rd_swmod_o[i]  = hwif_out.DMA_TASK_REG[i].OFFSET_RD.swmod;
+            bytecount_wr_data_o  [i] = hwif_out.DMA_TASK_REG[i].wr_data.BYTECNT_WR;
+            offset_wr_data_o     [i] = hwif_out.DMA_TASK_REG[i].wr_data.OFFSET_WR;
+            bytecount_rd_data_o  [i] = hwif_out.DMA_TASK_REG[i].wr_data.BYTECNT_RD;
+            offset_rd_data_o     [i] = hwif_out.DMA_TASK_REG[i].wr_data.OFFSET_RD;
+            
+            bytecount_wr_biten_o [i] = hwif_out.DMA_TASK_REG[i].wr_biten.BYTECNT_WR;
+            offset_wr_biten_o    [i] = hwif_out.DMA_TASK_REG[i].wr_biten.OFFSET_WR;
+            bytecount_rd_biten_o [i] = hwif_out.DMA_TASK_REG[i].wr_biten.BYTECNT_RD;
+            offset_rd_biten_o    [i] = hwif_out.DMA_TASK_REG[i].wr_biten.OFFSET_RD;
+
+            valid_o              [i] = hwif_out.DMA_TASK_REG[i].req &
+                                       hwif_out.DMA_TASK_REG[i].req_is_wr ;
+            
+            hwif_in.DMA_TASK_REG[i].wr_ack = ready_i[i];
         end
     end
 endgenerate
@@ -69,6 +81,7 @@ kdma_decoder_am u_kdma_decoder_am (
 
     .s_apb    (apb_if  ),
 
+    .hwif_in  (hwif_in ),
     .hwif_out (hwif_out)
 );
 

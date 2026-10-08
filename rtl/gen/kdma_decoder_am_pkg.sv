@@ -9,33 +9,32 @@ package kdma_decoder_am_pkg;
     localparam DMA_CHANNEL_COUNT = 'h8;
 
     typedef struct {
-        logic [21:0] value;
-        logic swmod;
-    } kdma_decoder_am__dma_task_r__OFFSET_WR__out_t;
+        logic wr_ack;
+    } kdma_decoder_am__dma_task_r__external__in_t;
 
     typedef struct {
-        logic [21:0] value;
-        logic swmod;
-    } kdma_decoder_am__dma_task_r__BYTECNT_WR__out_t;
+        kdma_decoder_am__dma_task_r__external__in_t DMA_TASK_REG[8];
+    } kdma_decoder_am__in_t;
+
+    typedef struct packed {
+        logic [9:0] _reserved_127_118;
+        logic [21:0] BYTECNT_RD;
+        logic [9:0] _reserved_95_86;
+        logic [21:0] OFFSET_RD;
+        logic [9:0] _reserved_63_54;
+        logic [21:0] BYTECNT_WR;
+        logic [9:0] _reserved_31_22;
+        logic [21:0] OFFSET_WR;
+    } kdma_decoder_am__dma_task_r__external__fields__out_t;
 
     typedef struct {
-        logic [21:0] value;
-        logic swmod;
-    } kdma_decoder_am__dma_task_r__OFFSET_RD__out_t;
+        logic req;
+        logic req_is_wr;
+        kdma_decoder_am__dma_task_r__external__fields__out_t wr_data;
+        kdma_decoder_am__dma_task_r__external__fields__out_t wr_biten;
+    } kdma_decoder_am__dma_task_r__external__out_t;
 
     typedef struct {
-        logic [21:0] value;
-        logic swmod;
-    } kdma_decoder_am__dma_task_r__BYTECNT_RD__out_t;
-
-    typedef struct {
-        kdma_decoder_am__dma_task_r__OFFSET_WR__out_t OFFSET_WR;
-        kdma_decoder_am__dma_task_r__BYTECNT_WR__out_t BYTECNT_WR;
-        kdma_decoder_am__dma_task_r__OFFSET_RD__out_t OFFSET_RD;
-        kdma_decoder_am__dma_task_r__BYTECNT_RD__out_t BYTECNT_RD;
-    } kdma_decoder_am__dma_task_r__out_t;
-
-    typedef struct {
-        kdma_decoder_am__dma_task_r__out_t DMA_TASK_REG[8];
+        kdma_decoder_am__dma_task_r__external__out_t DMA_TASK_REG[8];
     } kdma_decoder_am__out_t;
 endpackage

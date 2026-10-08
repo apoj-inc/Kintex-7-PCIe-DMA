@@ -7,6 +7,7 @@ module kdma_decoder_am (
 
         apb4_intf.slave s_apb,
 
+        input kdma_decoder_am_pkg::kdma_decoder_am__in_t hwif_in,
         output kdma_decoder_am_pkg::kdma_decoder_am__out_t hwif_out
     );
 
@@ -74,10 +75,12 @@ module kdma_decoder_am (
     assign s_apb.PSLVERR = cpuif_rd_err | cpuif_wr_err;
 
     logic cpuif_req_masked;
+    logic external_pending;
 
     // Read & write latencies are balanced. Stalls not required
-    assign cpuif_req_stall_rd = '0;
-    assign cpuif_req_stall_wr = '0;
+    // except if external
+    assign cpuif_req_stall_rd = external_pending;
+    assign cpuif_req_stall_wr = external_pending;
     assign cpuif_req_masked = cpuif_req
                             & !(!cpuif_req_is_wr & cpuif_req_stall_rd)
                             & !(cpuif_req_is_wr & cpuif_req_stall_wr);
@@ -90,6 +93,8 @@ module kdma_decoder_am (
     } decoded_reg_strb_t;
     decoded_reg_strb_t decoded_reg_strb;
     logic decoded_err;
+    logic decoded_req_is_external;
+
     logic [6:0] decoded_addr;
     logic decoded_req;
     logic decoded_req_is_wr;
@@ -99,12 +104,32 @@ module kdma_decoder_am (
     always_comb begin
         automatic logic is_valid_addr;
         automatic logic is_valid_rw;
+        automatic logic is_external;
+        is_external = '0;
         is_valid_addr = '1; // No valid address check
         is_valid_rw = '1; // No valid RW check
         for(int i0=0; i0<8; i0++) begin
-            decoded_reg_strb.DMA_TASK_REG[i0] = cpuif_req_masked & (cpuif_addr == 7'h0 + (7)'(i0) * 7'h10);
+            decoded_reg_strb.DMA_TASK_REG[i0] = cpuif_req_masked & (cpuif_addr == 7'h0 + (7)'(i0) * 7'h10) & cpuif_req_is_wr;
+            is_external |= cpuif_req_masked & (cpuif_addr == 7'h0 + (7)'(i0) * 7'h10) & cpuif_req_is_wr;
         end
         decoded_err = '0;
+        decoded_req_is_external = is_external;
+    end
+    logic external_wr_ack;
+    logic external_rd_ack;
+    always_ff @(posedge clk or negedge arst_n) begin
+        if(~arst_n) begin
+            external_pending <= '0;
+        end else begin
+            if(decoded_req_is_external & ~external_wr_ack & ~external_rd_ack) external_pending <= '1;
+            else if(external_wr_ack | external_rd_ack) external_pending <= '0;
+            `ifndef SYNTHESIS
+                assert_bad_ext_wr_ack: assert(!external_wr_ack || (external_pending | decoded_req_is_external))
+                    else $error("An external wr_ack strobe was asserted when no external request was active");
+                assert_bad_ext_rd_ack: assert(!external_rd_ack || (external_pending | decoded_req_is_external))
+                    else $error("An external rd_ack strobe was asserted when no external request was active");
+            `endif
+        end
     end
 
     // Pass down signals to next stage
@@ -117,179 +142,70 @@ module kdma_decoder_am (
     //--------------------------------------------------------------------------
     // Field logic
     //--------------------------------------------------------------------------
-    typedef struct {
-        struct {
-            struct {
-                logic [21:0] next;
-                logic load_next;
-            } OFFSET_WR;
-            struct {
-                logic [21:0] next;
-                logic load_next;
-            } BYTECNT_WR;
-            struct {
-                logic [21:0] next;
-                logic load_next;
-            } OFFSET_RD;
-            struct {
-                logic [21:0] next;
-                logic load_next;
-            } BYTECNT_RD;
-        } DMA_TASK_REG[8];
-    } field_combo_t;
-    field_combo_t field_combo;
+    
 
-    typedef struct {
-        struct {
-            struct {
-                logic [21:0] value;
-            } OFFSET_WR;
-            struct {
-                logic [21:0] value;
-            } BYTECNT_WR;
-            struct {
-                logic [21:0] value;
-            } OFFSET_RD;
-            struct {
-                logic [21:0] value;
-            } BYTECNT_RD;
-        } DMA_TASK_REG[8];
-    } field_storage_t;
-    field_storage_t field_storage;
+    
 
     for(genvar i0=0; i0<8; i0++) begin
-        // Field: kdma_decoder_am.DMA_TASK_REG[].OFFSET_WR
-        always_comb begin
-            automatic logic [21:0] next_c;
-            automatic logic load_next_c;
-            next_c = field_storage.DMA_TASK_REG[i0].OFFSET_WR.value;
-            load_next_c = '0;
-            if(decoded_reg_strb.DMA_TASK_REG[i0] && decoded_req_is_wr) begin // SW write
-                next_c = (field_storage.DMA_TASK_REG[i0].OFFSET_WR.value & ~decoded_wr_biten[21:0]) | (decoded_wr_data[21:0] & decoded_wr_biten[21:0]);
-                load_next_c = '1;
-            end
-            field_combo.DMA_TASK_REG[i0].OFFSET_WR.next = next_c;
-            field_combo.DMA_TASK_REG[i0].OFFSET_WR.load_next = load_next_c;
-        end
-        always_ff @(posedge clk or negedge arst_n) begin
-            if(~arst_n) begin
-                field_storage.DMA_TASK_REG[i0].OFFSET_WR.value <= 22'h0;
-            end else begin
-                if(field_combo.DMA_TASK_REG[i0].OFFSET_WR.load_next) begin
-                    field_storage.DMA_TASK_REG[i0].OFFSET_WR.value <= field_combo.DMA_TASK_REG[i0].OFFSET_WR.next;
-                end
-            end
-        end
-        assign hwif_out.DMA_TASK_REG[i0].OFFSET_WR.value = field_storage.DMA_TASK_REG[i0].OFFSET_WR.value;
-        assign hwif_out.DMA_TASK_REG[i0].OFFSET_WR.swmod = decoded_reg_strb.DMA_TASK_REG[i0] && decoded_req_is_wr && |(decoded_wr_biten[21:0]);
-        // Field: kdma_decoder_am.DMA_TASK_REG[].BYTECNT_WR
-        always_comb begin
-            automatic logic [21:0] next_c;
-            automatic logic load_next_c;
-            next_c = field_storage.DMA_TASK_REG[i0].BYTECNT_WR.value;
-            load_next_c = '0;
-            if(decoded_reg_strb.DMA_TASK_REG[i0] && decoded_req_is_wr) begin // SW write
-                next_c = (field_storage.DMA_TASK_REG[i0].BYTECNT_WR.value & ~decoded_wr_biten[53:32]) | (decoded_wr_data[53:32] & decoded_wr_biten[53:32]);
-                load_next_c = '1;
-            end
-            field_combo.DMA_TASK_REG[i0].BYTECNT_WR.next = next_c;
-            field_combo.DMA_TASK_REG[i0].BYTECNT_WR.load_next = load_next_c;
-        end
-        always_ff @(posedge clk or negedge arst_n) begin
-            if(~arst_n) begin
-                field_storage.DMA_TASK_REG[i0].BYTECNT_WR.value <= 22'h0;
-            end else begin
-                if(field_combo.DMA_TASK_REG[i0].BYTECNT_WR.load_next) begin
-                    field_storage.DMA_TASK_REG[i0].BYTECNT_WR.value <= field_combo.DMA_TASK_REG[i0].BYTECNT_WR.next;
-                end
-            end
-        end
-        assign hwif_out.DMA_TASK_REG[i0].BYTECNT_WR.value = field_storage.DMA_TASK_REG[i0].BYTECNT_WR.value;
-        assign hwif_out.DMA_TASK_REG[i0].BYTECNT_WR.swmod = decoded_reg_strb.DMA_TASK_REG[i0] && decoded_req_is_wr && |(decoded_wr_biten[53:32]);
-        // Field: kdma_decoder_am.DMA_TASK_REG[].OFFSET_RD
-        always_comb begin
-            automatic logic [21:0] next_c;
-            automatic logic load_next_c;
-            next_c = field_storage.DMA_TASK_REG[i0].OFFSET_RD.value;
-            load_next_c = '0;
-            if(decoded_reg_strb.DMA_TASK_REG[i0] && decoded_req_is_wr) begin // SW write
-                next_c = (field_storage.DMA_TASK_REG[i0].OFFSET_RD.value & ~decoded_wr_biten[85:64]) | (decoded_wr_data[85:64] & decoded_wr_biten[85:64]);
-                load_next_c = '1;
-            end
-            field_combo.DMA_TASK_REG[i0].OFFSET_RD.next = next_c;
-            field_combo.DMA_TASK_REG[i0].OFFSET_RD.load_next = load_next_c;
-        end
-        always_ff @(posedge clk or negedge arst_n) begin
-            if(~arst_n) begin
-                field_storage.DMA_TASK_REG[i0].OFFSET_RD.value <= 22'h0;
-            end else begin
-                if(field_combo.DMA_TASK_REG[i0].OFFSET_RD.load_next) begin
-                    field_storage.DMA_TASK_REG[i0].OFFSET_RD.value <= field_combo.DMA_TASK_REG[i0].OFFSET_RD.next;
-                end
-            end
-        end
-        assign hwif_out.DMA_TASK_REG[i0].OFFSET_RD.value = field_storage.DMA_TASK_REG[i0].OFFSET_RD.value;
-        assign hwif_out.DMA_TASK_REG[i0].OFFSET_RD.swmod = decoded_reg_strb.DMA_TASK_REG[i0] && decoded_req_is_wr && |(decoded_wr_biten[85:64]);
-        // Field: kdma_decoder_am.DMA_TASK_REG[].BYTECNT_RD
-        always_comb begin
-            automatic logic [21:0] next_c;
-            automatic logic load_next_c;
-            next_c = field_storage.DMA_TASK_REG[i0].BYTECNT_RD.value;
-            load_next_c = '0;
-            if(decoded_reg_strb.DMA_TASK_REG[i0] && decoded_req_is_wr) begin // SW write
-                next_c = (field_storage.DMA_TASK_REG[i0].BYTECNT_RD.value & ~decoded_wr_biten[117:96]) | (decoded_wr_data[117:96] & decoded_wr_biten[117:96]);
-                load_next_c = '1;
-            end
-            field_combo.DMA_TASK_REG[i0].BYTECNT_RD.next = next_c;
-            field_combo.DMA_TASK_REG[i0].BYTECNT_RD.load_next = load_next_c;
-        end
-        always_ff @(posedge clk or negedge arst_n) begin
-            if(~arst_n) begin
-                field_storage.DMA_TASK_REG[i0].BYTECNT_RD.value <= 22'h0;
-            end else begin
-                if(field_combo.DMA_TASK_REG[i0].BYTECNT_RD.load_next) begin
-                    field_storage.DMA_TASK_REG[i0].BYTECNT_RD.value <= field_combo.DMA_TASK_REG[i0].BYTECNT_RD.next;
-                end
-            end
-        end
-        assign hwif_out.DMA_TASK_REG[i0].BYTECNT_RD.value = field_storage.DMA_TASK_REG[i0].BYTECNT_RD.value;
-        assign hwif_out.DMA_TASK_REG[i0].BYTECNT_RD.swmod = decoded_reg_strb.DMA_TASK_REG[i0] && decoded_req_is_wr && |(decoded_wr_biten[117:96]);
+        // External register: kdma_decoder_am.DMA_TASK_REG[]
+
+        assign hwif_out.DMA_TASK_REG[i0].req = decoded_req_is_wr ? decoded_reg_strb.DMA_TASK_REG[i0] : '0;
+        assign hwif_out.DMA_TASK_REG[i0].req_is_wr = decoded_req_is_wr;
+        assign hwif_out.DMA_TASK_REG[i0].wr_data = decoded_wr_data;
+        assign hwif_out.DMA_TASK_REG[i0].wr_biten = decoded_wr_biten;
     end
 
     //--------------------------------------------------------------------------
     // Write response
     //--------------------------------------------------------------------------
-    assign cpuif_wr_ack = decoded_req & decoded_req_is_wr;
+    always_comb begin
+        automatic logic wr_ack;
+        wr_ack = '0;
+        for(int i0=0; i0<8; i0++) begin
+            wr_ack |= hwif_in.DMA_TASK_REG[i0].wr_ack;
+        end
+        external_wr_ack = wr_ack;
+    end
+    assign cpuif_wr_ack = external_wr_ack | (decoded_req & decoded_req_is_wr & ~decoded_req_is_external);
     // Writes are always granted with no error response
     assign cpuif_wr_err = '0;
 
     //--------------------------------------------------------------------------
     // Readback
     //--------------------------------------------------------------------------
+    logic readback_external_rd_ack_c;
+    always_comb begin
+        automatic logic rd_ack;
+        rd_ack = '0;
+        
+        readback_external_rd_ack_c = rd_ack;
+    end
+
+    logic readback_external_rd_ack;
+
+    assign readback_external_rd_ack = readback_external_rd_ack_c;
 
     logic [6:0] rd_mux_addr;
-    assign rd_mux_addr = decoded_addr;
+    logic [6:0] pending_rd_addr;
+    // Hold read mux address to guarantee it is stable throughout any external accesses
+    always_ff @(posedge clk or negedge arst_n) begin
+        if(~arst_n) begin
+            pending_rd_addr <= '0;
+        end else begin
+            if(decoded_req) pending_rd_addr <= decoded_addr;
+        end
+    end
+    assign rd_mux_addr = decoded_req ? decoded_addr : pending_rd_addr;
 
     logic readback_err;
     logic readback_done;
     logic [127:0] readback_data;
-    always_comb begin
-        automatic logic [127:0] readback_data_var;
-        readback_data_var = '0;
-        for(int i0=0; i0<8; i0++) begin
-            if(rd_mux_addr == 7'h0 + (7)'(i0) * 7'h10) begin
-                readback_data_var[21:0] = field_storage.DMA_TASK_REG[i0].OFFSET_WR.value;
-                readback_data_var[53:32] = field_storage.DMA_TASK_REG[i0].BYTECNT_WR.value;
-                readback_data_var[85:64] = field_storage.DMA_TASK_REG[i0].OFFSET_RD.value;
-                readback_data_var[117:96] = field_storage.DMA_TASK_REG[i0].BYTECNT_RD.value;
-            end
-        end
-        readback_data = readback_data_var;
-        readback_done = decoded_req & ~decoded_req_is_wr;
-        readback_err = '0;
-    end
+    assign readback_done = decoded_req & ~decoded_req_is_wr;
+    assign readback_data = '0;
+    assign readback_err = '0;
 
-    assign cpuif_rd_ack = readback_done;
+    assign external_rd_ack = readback_external_rd_ack;
+    assign cpuif_rd_ack = readback_done | readback_external_rd_ack;
     assign cpuif_rd_data = readback_data;
     assign cpuif_rd_err = readback_err;
 endmodule
