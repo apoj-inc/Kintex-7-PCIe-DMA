@@ -1,0 +1,44 @@
+`ifndef __KDMA__USER__RDL__
+`define __KDMA__USER__RDL__
+
+addrmap kdma_user_am #(
+    bit DMA_CHANNEL_COUNT = 8,
+    bit QUART_COUNT       = DMA_CHANNEL_COUNT / 4 + (DMA_CHANNEL_COUNT % 4 != 0)
+) {
+    desc = "User IRQ generator";
+
+    default regwidth = 128;
+
+    reg user_irq_quart_r {
+        desc = "Contains an array of signals for each user IRQ";
+
+        field {
+            desc = "Interrupt signal 3";
+            hw   = r;
+            sw   = rw;
+        } IRQ_CONTROL_3[96:96] = 0x0;
+
+        field {
+            desc = "Interrupt signal 2";
+            hw   = r;
+            sw   = rw;
+        } IRQ_CONTROL_2[64:64] = 0x0;
+
+        field {
+            desc = "Interrupt signal 1";
+            hw   = r;
+            sw   = rw;
+        } IRQ_CONTROL_1[32:32] = 0x0;
+
+        field {
+            desc = "Interrupt signal 0";
+            hw   = r;
+            sw   = rw;
+        } IRQ_CONTROL_0[0:0] = 0x0;
+    };
+
+    user_irq_quart_r USER_IRQ_QUART_REG[QUART_COUNT];
+    
+};
+
+`endif

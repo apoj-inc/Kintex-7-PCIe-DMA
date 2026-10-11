@@ -85,7 +85,36 @@ logic [7:0] cfg_bus_number     ;
 logic [4:0] cfg_device_number  ;
 logic [2:0] cfg_function_number;
 
+logic         user_psel   ;
+logic         user_penable;
+logic         user_pready ;
+logic [63:0]  user_paddr  ;
+logic         user_pwrite ;
+logic [127:0] user_pwdata ;
+logic [15:0]  user_pstrb  ;
+logic [127:0] user_prdata ;
+
+logic [DMA_CHANNEL_COUNT-1:0] user_irq;
+
 IBUFDS_GTE2 refclk_ibuf (.O(clk), .ODIV2(), .I(clk_in_p), .CEB(1'b0), .IB(clk_in_n));
+
+kdma_user_flatten #(
+    .DMA_CHANNEL_COUNT (DMA_CHANNEL_COUNT)
+) (
+    .clk           (user_clk_out   ),
+    .rst_n         (user_resetn_out),
+
+    .bar_psel_i    (user_psel      ),
+    .bar_penable_i (user_penable   ),
+    .bar_pready_o  (user_pready    ),
+    .bar_paddr_i   (user_paddr     ),
+    .bar_pwrite_i  (user_pwrite    ),
+    .bar_pwdata_i  (user_pwdata    ),
+    .bar_pstrb_i   (user_pstrb     ),
+    .bar_prdata_o  (user_prdata    ),
+
+    .user_irq_o    (user_irq       )
+);
 
 kdma_echodevice_bridged #(
     .BAR_COUNT         (BAR_COUNT         ),
@@ -104,27 +133,36 @@ kdma_echodevice_bridged #(
     .MAX_WQ_DEPTH      (MAX_WQ_DEPTH      ),
     .MAX_RQ_DEPTH      (MAX_RQ_DEPTH      )
 ) (
-    .clk              (user_clk_out   ),
-    .rst_n            (user_resetn_out),
+    .clk               (user_clk_out       ),
+    .rst_n             (user_resetn_out    ),
 
-    .pcie_valid_i     (m_axis_rx_tvalid),
-    .pcie_ready_o     (m_axis_rx_tready),
-    .pcie_data_i      (m_axis_rx_tdata ),
-    .pcie_sof_i       (m_axis_sof      ),
-    .pcie_eof_i       (m_axis_eof      ),
-    .pcie_bar_hit_i   (m_axis_bar_hit  ),
+    .pcie_valid_i      (m_axis_rx_tvalid   ),
+    .pcie_ready_o      (m_axis_rx_tready   ),
+    .pcie_data_i       (m_axis_rx_tdata    ),
+    .pcie_sof_i        (m_axis_sof         ),
+    .pcie_eof_i        (m_axis_eof         ),
+    .pcie_bar_hit_i    (m_axis_bar_hit     ),
 
-    .pcie_valid_o     (s_axis_tx_tvalid),
-    .pcie_ready_i     (s_axis_tx_tready),
-    .pcie_data_o      (s_axis_tx_tdata ),
-    .pcie_tkeep_o     (s_axis_tx_tkeep ),
-    .pcie_tlast_o     (s_axis_tx_tlast ),
+    .pcie_valid_o      (s_axis_tx_tvalid   ),
+    .pcie_ready_i      (s_axis_tx_tready   ),
+    .pcie_data_o       (s_axis_tx_tdata    ),
+    .pcie_tkeep_o      (s_axis_tx_tkeep    ),
+    .pcie_tlast_o      (s_axis_tx_tlast    ),
 
-    .bus_number_i     (cfg_bus_number     ),
-    .device_number_i  (cfg_device_number  ),
-    .function_number_i(cfg_function_number),
+    .bus_number_i      (cfg_bus_number     ),
+    .device_number_i   (cfg_device_number  ),
+    .function_number_i (cfg_function_number),
 
-    .user_irq_i (0)       
+    .user_psel_o       (user_psel          ),
+    .user_penable_o    (user_penable       ),
+    .user_pready_i     (user_pready        ),
+    .user_paddr_o      (user_paddr         ),
+    .user_pwrite_o     (user_pwrite        ),
+    .user_pwdata_o     (user_pwdata        ),
+    .user_pstrb_o      (user_pstrb         ),
+    .user_prdata_i     (user_prdata        ),
+
+    .user_irq_i        (user_irq           )                  
 );
 
 logic [3:0] pclk_sel_big_1, pclk_sel_big_2, pclk_sel_big_3;

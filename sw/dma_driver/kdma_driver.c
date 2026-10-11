@@ -232,10 +232,6 @@ static ssize_t write_to_pci(struct file *filp, const char __user *user_buf, size
 
     mutex_lock(&(device_array[dev_ind]->task_write_mutex));
     uint32_t task_fifo_free = ioread32((device_array[dev_ind]->bar2_ptr) + 0x8);
-    uint32_t dmawr_status = ioread32((device_array[dev_ind]->bar2_ptr) + ((device_array[dev_ind]->dma_cap_addrs[channel]) + 0x18));
-    if (dmawr_status != 0) {
-        printk(KERN_INFO "hdlnocgen_c5p_driver: device %d BDF %x MINOR %u dmawr status %u\n", dev_ind, device_array[dev_ind]->bdf, channel, dmawr_status);
-    }
     if (task_fifo_free == 0) {
         printk(KERN_ERR "hdlnocgen_c5p_driver: Write to DMA channel %d fail - no free spaces in DMARD-FIFO\n", channel);
         mutex_unlock(&(device_array[dev_ind]->task_write_mutex));
@@ -336,7 +332,7 @@ static irqreturn_t user_msix_pend(int irq, void *dev) {
             if ((device_array[i]->user_irq_index[j]) == irq) {
                 dev_ind = i;
                 irq_index = j;
-                (device_array[dev_ind]->user_irq_flags[i]) = 1;
+                (device_array[dev_ind]->user_irq_flags[j]) = 1;
             }
         }
     }

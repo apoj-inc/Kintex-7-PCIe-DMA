@@ -115,7 +115,7 @@ int main (int argc, char **argv) {
     if (size < 0) {
         return size;
     }
-    printf("Target CSR file %s\n", filepath);
+    //printf("Target CSR file %s\n", filepath);
 
     int csr_fd = open(filepath, O_RDWR);
     free(filepath);
@@ -180,38 +180,82 @@ int main (int argc, char **argv) {
     }
     printf("\n");
 
-    uint64_t bitcount = (sizeof(kal) + sizeof(checker))*8*iteration_count;
-    printf("Speed: %lf Gbit/sec\n", bitcount/elapsed);
 
-    /*
-    printf("Checking external interrupts\n");
+    printf("Checking external interrupts...\n");
 
-    int fd_csr = open("/dev/hdlnocgen_c5p_env_csr", O_RDWR);
-    int fd_irq = open("/dev/hdlnocgen_c5p_user_irq", O_RDWR);
+    size = asprintf(&filepath, "/dev/hdlnocgen_%s_env_csr", bdf);
+    if (size < 0) {
+        return size;
+    }
+    //printf("Target user CSR file %s\n", filepath);
+
+    int fd_csr = open(filepath, O_RDWR);
+    free(filepath);
+    if (fd_csr < 0) {
+        printf("Failed to open user CSR file\n");
+        return fd_csr;
+    }
+    
+    size = asprintf(&filepath, "/dev/hdlnocgen_%s_user_irq", bdf);
+    if (size < 0) {
+        return size;
+    }
+    //printf("Target user IRQ file %s\n", filepath);
+
+    int fd_irq = open(filepath, O_RDWR);
+    free(filepath);
+    if (fd_irq < 0) {
+        printf("Failed to open user IRQ file\n");
+        return fd_irq;
+    }
 
     uint32_t assert_irq = 0xFFFFFFFF;
     uint8_t irq_status;
     uint8_t deassert_irq = 0;
+    uint32_t deassert_irq_csr = 0;
+    
+    for (int i = 0; i < DMA_CHANNEL_COUNT; i++) {
+        pwrite(fd_irq, &deassert_irq, sizeof(deassert_irq), (off_t)(i));
+    }
 
     for (int i = 0; i < DMA_CHANNEL_COUNT; i++) {
+        pwrite(fd_csr, &deassert_irq_csr, 4, (off_t)(0x4*i));
         pwrite(fd_csr, &assert_irq, 4, (off_t)(0x4*i));
-        printf("Channel %d assert IRQ sent\n", i);
+        //printf("Channel %d assert IRQ sent\n", i);
         do {
+            usleep(10000);
             pread(fd_irq, &irq_status, sizeof(irq_status), (off_t)(i));
         } while (irq_status != 1);
-        printf("Channel %d IRQ asserted\n", i);
+        //printf("Channel %d IRQ asserted\n", i);
+        int irq_checker = 0;
+        for (int j = 0; j < DMA_CHANNEL_COUNT; j++) {
+            pread(fd_irq, &irq_status, sizeof(irq_status), (off_t)(j));
+            irq_checker += irq_status;
+        }
+        if (irq_checker > 1) {
+            printf("Error: too many interrupts asserted - %d\n", irq_checker);
+            printf("Interrupt array: ");
+            for (int j = 0; j < DMA_CHANNEL_COUNT; j++) {
+                pread(fd_irq, &irq_status, sizeof(irq_status), (off_t)(j));
+                printf("%d ", irq_status);
+            }
+            printf("\n");
+            return -1;
+        }
         pwrite(fd_irq, &deassert_irq, sizeof(deassert_irq), (off_t)(i));
-        printf("Channel %d deassert IRQ sent\n", i);
+        //printf("Channel %d deassert IRQ sent\n", i);
         do {
             pread(fd_irq, &irq_status, sizeof(irq_status), (off_t)(i));
         } while (irq_status != 0);
-        printf("Channel %d IRQ deasserted\n", i);
-        
-        printf("Channel %d IRQ check success\n", i);
+       // printf("Channel %d IRQ deasserted\n", i);
     }
-    */
+    printf("Checking external interrupts success!\n");
+
 
     for (int i = 0; i < DMA_CHANNEL_COUNT; i++) {
         close(fd[i]);
     }
+
+    uint64_t bitcount = (sizeof(kal) + sizeof(checker))*8*iteration_count;
+    printf("Speed: %lf Gbit/sec\n", bitcount/elapsed);
 }

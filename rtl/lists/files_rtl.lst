@@ -4,6 +4,8 @@ rtl/gen/kdma_msix_am_pkg.sv
 rtl/gen/kdma_csr_am.sv
 rtl/gen/kdma_decoder_am.sv
 rtl/gen/kdma_msix_am.sv
+rtl/gen/kdma_user_am_pkg.sv
+rtl/gen/kdma_user_am.sv
 rtl/src/lib/hs_wrmhl_arbiter.sv
 rtl/src/lib/stream_arbiter.sv
 rtl/src/lib/stream_fifo.sv
@@ -31,4 +33,5 @@ rtl/src/pcie_axi_bridge/kdma_msix_bridge.sv
 rtl/src/pcie_axi_bridge/kdma_pcie_axi_bridge.sv
 rtl/src/example/kdma_echodevice.sv
 rtl/src/example/kdma_echodevice_bridged.sv
+rtl/src/example/kdma_user_flatten.sv
 rtl/src/kdma_toplevel.sv
