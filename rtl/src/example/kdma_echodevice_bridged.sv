@@ -38,6 +38,15 @@ module kdma_echodevice_bridged #(
     input  logic [4:0]            device_number_i  ,
     input  logic [2:0]            function_number_i,
 
+    output logic                  user_psel        ,
+    output logic                  user_penable     ,
+    output logic                  user_pready      ,
+    output logic [63:0]           user_paddr       ,
+    output logic                  user_pwrite      ,
+    output logic [127:0]          user_pwdata      ,
+    output logic [15:0]           user_pstrb       ,
+    output logic [127:0]          user_prdata      ,
+
     input  logic [MSIX_COUNT-1:0] user_irq_i       
 );
 
@@ -215,34 +224,47 @@ logic [15:0]  dec_pstrb  ;
 logic [127:0] dec_prdata ;
 
 always_comb begin
-    csr_psel    = '0               ;
-    csr_penable = bar_penable      ;
-    csr_paddr   = bar_paddr  [11:0];
-    csr_pwrite  = bar_pwrite       ;
-    csr_pwdata  = bar_pwdata       ;
-    csr_pstrb   = bar_pstrb        ;
+    csr_psel     = '0               ;
+    csr_penable  = bar_penable      ;
+    csr_paddr    = bar_paddr  [11:0];
+    csr_pwrite   = bar_pwrite       ;
+    csr_pwdata   = bar_pwdata       ;
+    csr_pstrb    = bar_pstrb        ;
 
-    dec_psel    = '0               ;
-    dec_penable = bar_penable      ;
-    dec_paddr   = bar_paddr  [11:0];
-    dec_pwrite  = bar_pwrite       ;
-    dec_pwdata  = bar_pwdata       ;
-    dec_pstrb   = bar_pstrb        ;
+    dec_psel     = '0               ;
+    dec_penable  = bar_penable      ;
+    dec_paddr    = bar_paddr  [11:0];
+    dec_pwrite   = bar_pwrite       ;
+    dec_pwdata   = bar_pwdata       ;
+    dec_pstrb    = bar_pstrb        ;
+
+    user_psel    = '0               ;
+    user_penable = bar_penable      ;
+    user_paddr   = bar_paddr  [13:0] - 'h2000;
+    user_pwrite  = bar_pwrite       ;
+    user_pwdata  = bar_pwdata       ;
+    user_pstrb   = bar_pstrb        ;
 
     bar_pready[2] = '0;
     bar_prdata[2] = '0;
 
-    if (bar_paddr[15:0] < 'h1000) begin
+    if (bar_paddr[13:0] < 'h1000) begin
         csr_psel = bar_psel[2];
 
         bar_pready[2] = csr_pready;
         bar_prdata[2] = csr_prdata;
     end
-    else begin
+    else if (bar_paddr[13:0] < 'h2000) begin
         dec_psel = bar_psel[2];
 
         bar_pready[2] = dec_pready;
         bar_prdata[2] = dec_prdata;
+    end
+    else begin
+        user_psel = bar_psel[2];
+
+        bar_pready[2] = user_pready;
+        bar_prdata[2] = user_prdata;
     end
 
     bar_pready[1] = '0;
