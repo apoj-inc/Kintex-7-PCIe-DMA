@@ -1,15 +1,11 @@
 rtl/gen/kdma_csr_am_pkg.sv
 rtl/gen/kdma_decoder_am_pkg.sv
 rtl/gen/kdma_msix_am_pkg.sv
+rtl/gen/kdma_user_am_pkg.sv
 rtl/gen/kdma_csr_am.sv
 rtl/gen/kdma_decoder_am.sv
 rtl/gen/kdma_msix_am.sv
-rtl/gen/kdma_user_am_pkg.sv
 rtl/gen/kdma_user_am.sv
-rtl/src/lib/hs_wrmhl_arbiter.sv
-rtl/src/lib/stream_arbiter.sv
-rtl/src/lib/stream_fifo.sv
-rtl/src/lib/apb4_intf.sv
 rtl/src/dma_controller/kdma_csr_flatten.sv
 rtl/src/dma_controller/kdma_decoder_flatten.sv
 rtl/src/dma_controller/kdma_decoder.sv

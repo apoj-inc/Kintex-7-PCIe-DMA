@@ -1,20 +1,22 @@
+import kdma_pcie_headers_pkg::*;
+
 module tb_dma_echodevice_bridged;
 
 parameter BAR_COUNT                                 = 4         ;
 
-parameter DMA_CHANNEL_COUNT                         = 2         ;
+parameter DMA_CHANNEL_COUNT                         = 8         ;
 parameter PIPELINE_CAPACITY                         = 4         ;
 
 parameter     DMA_BYTES_WIDTH                       = 22        ;
 parameter     DMA_OFFFSET_WIDTH                     = 22        ;
 
-parameter int DMA_WORD_BYTES    [DMA_CHANNEL_COUNT] = '{2{16  }};
-parameter int DMA_WQ_DEPTH      [DMA_CHANNEL_COUNT] = '{2{16  }};
-parameter int DMA_RQ_DEPTH      [DMA_CHANNEL_COUNT] = '{2{16  }};
-parameter     DMA_TQ_DEPTH                          = 2         ;
+parameter int DMA_WORD_BYTES    [DMA_CHANNEL_COUNT] = '{8{64  }};
+parameter int DMA_WQ_DEPTH      [DMA_CHANNEL_COUNT] = '{8{64  }};
+parameter int DMA_RQ_DEPTH      [DMA_CHANNEL_COUNT] = '{8{64  }};
+parameter     DMA_TQ_DEPTH                          = 8         ;
 
-parameter     MAX_WQ_DEPTH                          = 16        ;
-parameter     MAX_RQ_DEPTH                          = 16        ;
+parameter     MAX_WQ_DEPTH                          = 64        ;
+parameter     MAX_RQ_DEPTH                          = 64        ;
 
 parameter AXI_ID_WIDTH   = PIPELINE_CAPACITY == 1 ? 1 : $clog2(PIPELINE_CAPACITY);
 parameter MSIX_COUNT     = DMA_CHANNEL_COUNT                                     ;
@@ -132,7 +134,8 @@ always_ff @(posedge clk or negedge rst_n) begin
         pcie_ready_i <= '0;
     end
     else begin
-        pcie_ready_i <= $urandom();
+        // pcie_ready_i <= $urandom();
+        pcie_ready_i <= '1;
     end
 end
 
@@ -141,9 +144,10 @@ always_ff @(posedge clk or negedge rst_n) begin
         pcie_valid_i <= '0;
     end
     else begin
-        pcie_valid_i <= pcie_data_queue.size() ?
-                        (pcie_valid_i && ~pcie_ready_o) ? '1 : $urandom()
-                        : '0;
+        pcie_valid_i <= '1;
+        // pcie_valid_i <= pcie_data_queue.size() ?
+        //                 (pcie_valid_i && ~pcie_ready_o) ? '1 : $urandom()
+        //                 : '0;
         if (pcie_valid_i && pcie_ready_o) begin
             pcie_data_queue.pop_front();
         end
@@ -246,6 +250,9 @@ assign mr4d.req_id = 'hBEEF;
 logic check_queues;
 
 initial begin
+    pcie_data_lock = new(1);
+
+
     check_queues = '0;
     test_done = '0;
     clk = 0;
@@ -258,7 +265,59 @@ initial begin
     rst_n = 1;
     @(posedge clk);
 
-    repeat (1000) @(posedge clk);
+    pcie_data_lock.get(1);
+
+    pcie_reg_write(
+        .address  (64'h9170000C),
+        .data     (64'h0),
+        .write_64 ('0),
+        .bar_hit  (4'b1100)
+    );
+
+    pcie_reg_write(
+        .address  (64'h99170000C),
+        .data     (64'h0),
+        .write_64 ('0),
+        .bar_hit  (4'b1100)
+    );
+
+    for (int i = 0; i < DMA_CHANNEL_COUNT*2; i++) begin
+        pcie_reg_write(
+            .address  (64'('h91700000 + i * 'h10)),
+            .data     (64'(('hF000_0000_0000_0000 >> (32 * (i%2))) + i * 'h4)),
+            .write_64 ('1),
+            .bar_hit  (4'b0011)
+        );
+        pcie_reg_write(
+            .address  (64'('h91700008 + i * 'h10)),
+            .data     (64'(('h0 << 32) | $urandom())),
+            .write_64 ('1),
+            .bar_hit  (4'b0011)
+        );
+
+        pcie_reg_write(
+            .address  (64'('h91700044 + i * 'h40)),
+            .data     (64'('hFFFF_FFFF_0000_0000 + i * 'h1000)),
+            .write_64 ('1),
+            .bar_hit  (4'b1100)
+        );
+    end
+    pcie_data_lock.put(1);
+
+    for (int i = 0; i < 10; i++) begin
+        generate_dma();
+
+        repeat (2000) @(posedge clk);
+
+        for (int i = 0; i < DMA_CHANNEL_COUNT; i++) begin
+            pcie_reg_write(
+                .address  (64'('h91700060 + i * 'h40)),
+                .data     (64'hFFFF_FFFF),
+                .write_64 ('0),
+                .bar_hit  (4'b1100)
+            );
+        end
+    end
 
     check_queues = '1;
 
@@ -341,6 +400,7 @@ initial begin
 
     for (int i = 0; i < DMA_CHANNEL_COUNT; i++) begin
         $display("Checking channel %d...", i);
+        $display("Sizes: ", dmard_data[i].size, dmawr_data[i].size);
         while (dmard_data[i].size) begin
             assert (dmard_data[i].pop_front() == dmawr_data[i].pop_front())
             else $display("Error");
@@ -393,76 +453,26 @@ task automatic pcie_reg_write(
     end
 endtask
 
-initial begin
-    pcie_data_lock = new(1);
-
+task automatic generate_dma();
     pcie_data_lock.get(1);
 
-    pcie_reg_write(
-        .address  (64'h9170000C),
-        .data     (64'h0),
-        .write_64 ('0),
-        .bar_hit  (4'b1100)
-    );
-
-    pcie_reg_write(
-        .address  (64'h99170000C),
-        .data     (64'h0),
-        .write_64 ('0),
-        .bar_hit  (4'b1100)
-    );
-
-    for (int i = 0; i < DMA_CHANNEL_COUNT*2; i++) begin
+    for (int i = 0; i < DMA_CHANNEL_COUNT; i++) begin
         pcie_reg_write(
-            .address  (64'('h91700000 + i * 'h10)),
-            .data     (64'(('hF000_0000_0000_0000 >> (32 * (i%2))) + i * 'h4)),
+            .address  (64'h91701008 + i*'h10),
+            .data     (64'(('h400 << 32) | 0)),
             .write_64 ('1),
-            .bar_hit  (4'b0011)
-        );
-        pcie_reg_write(
-            .address  (64'('h91700008 + i * 'h10)),
-            .data     (64'(('h0 << 32) | $urandom())),
-            .write_64 ('1),
-            .bar_hit  (4'b0011)
+            .bar_hit  (4'b1100)
         );
 
         pcie_reg_write(
-            .address  (64'('h91700044 + i * 'h40)),
-            .data     (64'('hFFFF_FFFF_0000_0000 + i * 'h1000)),
+            .address  (64'h91701000 + i*'h10),
+            .data     (64'(('h400 << 32) | 32'h400)),
             .write_64 ('1),
             .bar_hit  (4'b1100)
         );
     end
-
-    pcie_reg_write(
-        .address  (64'h91701008),
-        .data     (64'(('h400 << 32) | 0)),
-        .write_64 ('1),
-        .bar_hit  (4'b1100)
-    );
-
-    pcie_reg_write(
-        .address  (64'h91701000),
-        .data     (64'(('h400 << 32) | 32'h400)),
-        .write_64 ('1),
-        .bar_hit  (4'b1100)
-    );
-
-    pcie_reg_write(
-        .address  (64'h91701018),
-        .data     (64'(('h400 << 32) | 0)),
-        .write_64 ('1),
-        .bar_hit  (4'b1100)
-    );
-
-    pcie_reg_write(
-        .address  (64'h91701010),
-        .data     (64'(('h400 << 32) | 32'h400)),
-        .write_64 ('1),
-        .bar_hit  (4'b1100)
-    );
     
     pcie_data_lock.put(1);
-end
+endtask
 
 endmodule

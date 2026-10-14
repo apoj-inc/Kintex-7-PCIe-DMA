@@ -24,7 +24,7 @@ addrmap kdma_csr_am #(
             desc = "KDMA channel count";
             hw   = rw;
             sw   = rw;
-        } DMA_RESET [96:96] = 0x1;
+        } DMA_RESET [96:96] = 0x0;
 
         field {
             desc = "KDMA channel count";

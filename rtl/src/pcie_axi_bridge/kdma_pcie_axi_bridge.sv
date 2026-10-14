@@ -161,10 +161,10 @@ module kdma_pcie_axi_bridge #(
             assign rlast_wr[1]   = rlast_err[i] ;
             assign rdata_wr [1]  = {rdata_err[i], rresp_err[i], rid_err[i]};
 
-            hs_wrmhl_arbiter #(
+            stream_wrmhl_arbiter #(
                 .DATA_WIDTH (128+2+AXI_ID_WIDTH),
                 .INPUT_NUM  (2                 )
-            ) u_hs_wrmhl_arbiter (
+            ) u_stream_wrmhl_arbiter (
                 .clk     (clk  ),
                 .rst_n   (rst_n),
 
