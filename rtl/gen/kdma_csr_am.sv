@@ -196,7 +196,7 @@ module kdma_csr_am (
     end
     always_ff @(posedge clk or negedge arst_n) begin
         if(~arst_n) begin
-            field_storage.GLOBAL_REG.DMA_RESET.value <= 1'h1;
+            field_storage.GLOBAL_REG.DMA_RESET.value <= 1'h0;
         end else begin
             if(field_combo.GLOBAL_REG.DMA_RESET.load_next) begin
                 field_storage.GLOBAL_REG.DMA_RESET.value <= field_combo.GLOBAL_REG.DMA_RESET.next;

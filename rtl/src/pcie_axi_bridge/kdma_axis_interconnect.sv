@@ -77,10 +77,10 @@ module kdma_axis_interconnect #(
     assign final_pcie_tlast_wr[3] = msix_pcie_tlast_i     ;
     assign final_pcie_data_wr [3] = {msix_pcie_data_i, msix_pcie_tkeep_i};
 
-    hs_wrmhl_arbiter #(
+    stream_wrmhl_arbiter #(
         .DATA_WIDTH (128+16           ),
         .INPUT_NUM  (DMA_CHANNEL_COUNT)
-    ) u_hs_wrmhl_arbiter_dmard (
+    ) u_stream_wrmhl_arbiter_dmard (
         .clk     (clk  ),
         .rst_n   (rst_n),
 
@@ -97,10 +97,10 @@ module kdma_axis_interconnect #(
         .sel_o   ()
     );
     
-    hs_wrmhl_arbiter #(
+    stream_wrmhl_arbiter #(
         .DATA_WIDTH (128+16           ),
         .INPUT_NUM  (DMA_CHANNEL_COUNT)
-    ) u_hs_wrmhl_arbiter_dmawr (
+    ) u_stream_wrmhl_arbiter_dmawr (
         .clk     (clk  ),
         .rst_n   (rst_n),
 
@@ -117,10 +117,10 @@ module kdma_axis_interconnect #(
         .sel_o   ()
     );
     
-    hs_wrmhl_arbiter #(
+    stream_wrmhl_arbiter #(
         .DATA_WIDTH (128+16),
         .INPUT_NUM  (4     )
-    ) u_hs_wrmhl_arbiter_final (
+    ) u_stream_wrmhl_arbiter_final (
         .clk     (clk  ),
         .rst_n   (rst_n),
 

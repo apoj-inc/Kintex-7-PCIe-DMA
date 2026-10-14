@@ -122,7 +122,7 @@ kdma_pcie_axi_bridge #(
     .PIPELINE_CAPACITY (PIPELINE_CAPACITY)
 ) u_kdma_pcie_axi_bridge (
     .clk               (clk              ),
-    .rst_n             (dma_resetn       ),
+    .rst_n             (rst_n            ),
 
     .pcie_valid_i      (pcie_valid_i     ),
     .pcie_ready_o      (pcie_ready_o     ),
