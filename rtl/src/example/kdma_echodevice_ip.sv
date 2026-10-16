@@ -77,8 +77,6 @@ module kdma_echodevice_ip #(
 
     logic dma_resetn;
 
-    assign dma_resetn_o = dma_resetn;
-
     logic         user_psel   ;
     logic         user_penable;
     logic         user_pready ;
