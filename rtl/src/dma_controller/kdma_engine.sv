@@ -1,4 +1,4 @@
-module kdma_top #(
+module kdma_engine #(
     parameter     DMA_CHANNEL_COUNT                     = 8         ,
     parameter     PIPELINE_CAPACITY                     = 4         ,
     
