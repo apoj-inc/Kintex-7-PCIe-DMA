@@ -167,7 +167,7 @@ module kdma_echodevice_ip #(
 
         .MAX_WQ_DEPTH      (MAX_WQ_DEPTH     ),
         .MAX_RQ_DEPTH      (MAX_RQ_DEPTH     )
-    ) (
+    ) u_kdma_toplevel (
         .clk_in_p           (clk_in_p        ),
         .clk_in_n           (clk_in_n        ),
 
