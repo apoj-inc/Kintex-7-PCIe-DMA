@@ -189,7 +189,7 @@ module kdma_echodevice #(
         end
     endgenerate
 
-    kdma_top #(
+    kdma_engine #(
         .DMA_CHANNEL_COUNT (DMA_CHANNEL_COUNT ),
         .PIPELINE_CAPACITY (PIPELINE_CAPACITY ),
 
@@ -203,7 +203,7 @@ module kdma_echodevice #(
 
         .MAX_WQ_DEPTH      (MAX_WQ_DEPTH      ),
         .MAX_RQ_DEPTH      (MAX_RQ_DEPTH      )
-    ) u_kdma_top (
+    ) u_kdma_kdma_engine (
         .clk                (clk             ),
         .rst_n              (rst_n           ),
 
