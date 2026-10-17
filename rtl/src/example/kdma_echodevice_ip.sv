@@ -41,28 +41,7 @@ module kdma_echodevice_ip #(
     input  logic                         pci_exp_rx2_p                           ,
     input  logic                         pci_exp_rx2_n                           ,
     input  logic                         pci_exp_rx3_p                           ,
-    input  logic                         pci_exp_rx3_n                           ,
-
-    input  logic                         dma_wrdata_valid_i   [DMA_CHANNEL_COUNT],
-    output logic                         dma_wrdata_ready_o   [DMA_CHANNEL_COUNT],
-    input  logic [DMA_WQ_ADDR_WIDTH:0]   dma_wrdata_count_i   [DMA_CHANNEL_COUNT],
-    input  logic [127:0]                 dma_wrdata_data_i    [DMA_CHANNEL_COUNT],
-
-    output logic                         dma_rddata_valid_o   [DMA_CHANNEL_COUNT],
-    input  logic                         dma_rddata_ready_i   [DMA_CHANNEL_COUNT],
-    input  logic [DMA_RQ_ADDR_WIDTH:0]   dma_rddata_free_i    [DMA_CHANNEL_COUNT],
-    output logic [127:0]                 dma_rddata_data_o    [DMA_CHANNEL_COUNT],
-
-    output logic                         user_psel_o                             ,
-    output logic                         user_penable_o                          ,
-    input  logic                         user_pready_i                           ,
-    output logic [63:0]                  user_paddr_o                            ,
-    output logic                         user_pwrite_o                           ,
-    output logic [127:0]                 user_pwdata_o                           ,
-    output logic [15:0]                  user_pstrb_o                            ,
-    input  logic [127:0]                 user_prdata_i                           ,
-
-    input  logic [DMA_CHANNEL_COUNT-1:0] user_irq_i                              
+    input  logic                         pci_exp_rx3_n                                                    
 );
 
     logic                       dma_wrdata_valid [DMA_CHANNEL_COUNT];
@@ -75,7 +54,9 @@ module kdma_echodevice_ip #(
     logic [DMA_RQ_ADDR_WIDTH:0] dma_rddata_free  [DMA_CHANNEL_COUNT];
     logic [127:0]               dma_rddata_data  [DMA_CHANNEL_COUNT];
 
-    logic dma_resetn;
+    logic dma_clk    ;
+    logic pcie_resetn;
+    logic dma_resetn ;
 
     logic         user_psel   ;
     logic         user_penable;
@@ -91,19 +72,19 @@ module kdma_echodevice_ip #(
     kdma_user_flatten #(
         .DMA_CHANNEL_COUNT (DMA_CHANNEL_COUNT)
     ) u_kdma_user_flatten (
-        .clk           (user_clk_out   ),
-        .rst_n         (user_resetn_out),
+        .clk           (dma_clk     ),
+        .rst_n         (pcie_resetn ),
 
-        .bar_psel_i    (user_psel      ),
-        .bar_penable_i (user_penable   ),
-        .bar_pready_o  (user_pready    ),
-        .bar_paddr_i   (user_paddr     ),
-        .bar_pwrite_i  (user_pwrite    ),
-        .bar_pwdata_i  (user_pwdata    ),
-        .bar_pstrb_i   (user_pstrb     ),
-        .bar_prdata_o  (user_prdata    ),
+        .bar_psel_i    (user_psel   ),
+        .bar_penable_i (user_penable),
+        .bar_pready_o  (user_pready ),
+        .bar_paddr_i   (user_paddr  ),
+        .bar_pwrite_i  (user_pwrite ),
+        .bar_pwdata_i  (user_pwdata ),
+        .bar_pstrb_i   (user_pstrb  ),
+        .bar_prdata_o  (user_prdata ),
 
-        .user_irq_o    (user_irq       )
+        .user_irq_o    (user_irq    )
     );
 
     generate
@@ -118,7 +99,7 @@ module kdma_echodevice_ip #(
                 .DATA_WIDTH (128            ),
                 .FIFO_DEPTH (DMA_RQ_DEPTH[i])
             ) dmard_fifo (
-                .ACLK    (clk       ),
+                .ACLK    (dma_clk   ),
                 .ARESETn (dma_resetn),
 
                 .data_i  (dma_rddata_data [i]),
@@ -136,7 +117,7 @@ module kdma_echodevice_ip #(
                 .DATA_WIDTH (128 ),
                 .FIFO_DEPTH (1024)
             ) file_fifo (
-                .ACLK    (clk       ),
+                .ACLK    (dma_clk   ),
                 .ARESETn (dma_resetn),
 
                 .data_i  (file_wr_data ),
@@ -154,7 +135,7 @@ module kdma_echodevice_ip #(
                 .DATA_WIDTH (128            ),
                 .FIFO_DEPTH (DMA_WQ_DEPTH[i])
             ) dmawr_fifo (
-                .ACLK    (clk       ),
+                .ACLK    (dma_clk   ),
                 .ARESETn (dma_resetn),
 
                 .data_i  (file_rd_data ),
@@ -186,7 +167,7 @@ module kdma_echodevice_ip #(
 
         .MAX_WQ_DEPTH      (MAX_WQ_DEPTH     ),
         .MAX_RQ_DEPTH      (MAX_RQ_DEPTH     )
-    ) (
+    ) u_kdma_toplevel (
         .clk_in_p           (clk_in_p        ),
         .clk_in_n           (clk_in_n        ),
 
@@ -231,7 +212,9 @@ module kdma_echodevice_ip #(
 
         .user_irq_i         (user_irq        ),
 
-        .dma_resetn_o       (dma_resetn      )
+        .dma_clk_o          (dma_clk         ),
+        .dma_resetn_o       (dma_resetn      ),
+        .pcie_resetn_o      (pcie_resetn     )
     );
     
 endmodule

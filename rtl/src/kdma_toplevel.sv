@@ -64,7 +64,9 @@ module kdma_toplevel #(
 
     input  logic [DMA_CHANNEL_COUNT-1:0] user_irq_i                              ,
 
-    output logic                         dma_resetn_o                            
+    output logic                         dma_clk_o                               ,
+    output logic                         dma_resetn_o                            ,
+    output logic                         pcie_resetn_o                           
 );
 
     logic [3:0] pci_exp_txp;
@@ -118,6 +120,9 @@ module kdma_toplevel #(
     logic [127:0] user_pwdata ;
     logic [15:0]  user_pstrb  ;
     logic [127:0] user_prdata ;
+
+    assign dma_clk_o     = user_clk_out   ;
+    assign pcie_resetn_o = user_resetn_out;
 
     logic [DMA_CHANNEL_COUNT-1:0] user_irq;
 

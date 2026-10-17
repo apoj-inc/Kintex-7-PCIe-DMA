@@ -13,7 +13,7 @@ set_property IOSTANDARD LVCMOS33 [get_ports sys_rst_n]
 
 set_property PACKAGE_PIN H6 [get_ports clk_in_p]
 
-set_property LOC IBUFDS_GTE2_X0Y0 [get_cells refclk_ibuf]
+set_property LOC IBUFDS_GTE2_X0Y0 [get_cells u_kdma_toplevel/refclk_ibuf]
 
 ###############################################################################
 # Timing Constraints
@@ -22,15 +22,22 @@ set_property LOC IBUFDS_GTE2_X0Y0 [get_cells refclk_ibuf]
 create_clock -period 10.000 -name clk_in_p [get_ports clk_in_p]
 
 
-set_false_path -to [get_pins pclk_i1/S0]
-set_false_path -to [get_pins pclk_i1/S1]
+set_false_path -to [get_pins u_kdma_toplevel/pclk_i1/S0]
+set_false_path -to [get_pins u_kdma_toplevel/pclk_i1/S1]
 
 
-create_generated_clock -name clk_125mhz_x0y0 [get_pins mmcm_i/CLKOUT0]
-create_generated_clock -name clk_250mhz_x0y0 [get_pins mmcm_i/CLKOUT1]
-create_generated_clock -name clk_125mhz_mux_x0y0 -source [get_pins pclk_i1/I0] -divide_by 1 [get_pins pclk_i1/O]
+create_generated_clock -name clk_125mhz_x0y0 [get_pins u_kdma_toplevel/mmcm_i/CLKOUT0]
+create_generated_clock -name clk_250mhz_x0y0 [get_pins u_kdma_toplevel/mmcm_i/CLKOUT1]
 
-create_generated_clock -name clk_250mhz_mux_x0y0 -source [get_pins pclk_i1/I1] -divide_by 1 -add -master_clock [get_clocks -of [get_pins pclk_i1/I1]] [get_pins pclk_i1/O]
+create_generated_clock -name clk_125mhz_mux_x0y0 \
+-source [get_pins u_kdma_toplevel/pclk_i1/I0] \
+-divide_by 1 [get_pins u_kdma_toplevel/pclk_i1/O]
+
+create_generated_clock -name clk_250mhz_mux_x0y0 \
+-source [get_pins u_kdma_toplevel/pclk_i1/I1] \
+-divide_by 1 -add \
+-master_clock [get_clocks -of [get_pins u_kdma_toplevel/pclk_i1/I1]] \
+[get_pins u_kdma_toplevel/pclk_i1/O]
 
 set_clock_groups -name pcieclkmux -physically_exclusive -group clk_125mhz_mux_x0y0 -group clk_250mhz_mux_x0y0
 
