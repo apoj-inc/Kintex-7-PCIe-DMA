@@ -106,10 +106,8 @@ module kdma_dmic #(
                 .data_o  (                                                      ), // NC
                 .valid_o (send_irq_st_1 [i]                                     ),
                 .ready_i (irq_sent_st_1 [i]                                     ),
-                .sel_o   (irq_index_st_1[i][ST_1_GRP_SIZE_W-1:0]                )
+                .sel_o   (irq_index_st_1[i]                                     )
             );
-
-            assign irq_index_st_1[i][MSIX_COUNT_WIDTH-1:ST_1_GRP_SIZE_W] = '0;
         end
         if (ST_1_ARB_REM != 0) begin : st_1_arb_rem
             stream_arbiter #(
@@ -127,10 +125,8 @@ module kdma_dmic #(
                 .data_o  (                                                                ), // NC
                 .valid_o (send_irq_st_1 [ST_1_ARB_DIV]                                    ),
                 .ready_i (irq_sent_st_1 [ST_1_ARB_DIV]                                    ),
-                .sel_o   (irq_index_st_1[ST_1_ARB_DIV][ST_1_ARB_REM_W-1:0]                )
+                .sel_o   (irq_index_st_1[ST_1_ARB_DIV]                                    )
             );
-
-            assign irq_index_st_1[ST_1_ARB_DIV][MSIX_COUNT_WIDTH-1:ST_1_ARB_REM_W] = '0;
         end
 
         for (i = 0; i < ST_1_ARB_CNT; i++) begin : st_1_idx_norm

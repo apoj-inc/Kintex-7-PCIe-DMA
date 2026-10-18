@@ -51,7 +51,18 @@ module kdma_dmawr_sink #(
         genvar i;
 
         for (i = 0; i < DMA_CHANNEL_COUNT; i++) begin
+            genvar j;
+
             state_t state, state_next;
+
+            logic [127:0] wdata_le;
+
+            for (j = 0; j < 4; j++) begin
+                assign wdata_le[j*32 +: 32] =  {wdata_i[i][j*32 + 0  +: 8],
+                                                wdata_i[i][j*32 + 8  +: 8],
+                                                wdata_i[i][j*32 + 16 +: 8],
+                                                wdata_i[i][j*32 + 24 +: 8]};
+            end
 
             logic                    bvalid, bvalid_next;
             logic [AXI_ID_WIDTH-1:0] bid   , bid_next   ;
@@ -207,11 +218,11 @@ module kdma_dmawr_sink #(
                             wready_o[i] = pcie_ready_i[i];
 
                             pcie_valid_o[i] = wvalid_i[i];
-                            pcie_data_o[i]  = {wdata_i[i][31:0], buf_for_32};
+                            pcie_data_o[i]  = {wdata_le[31:0], buf_for_32};
                             pcie_tkeep_o[i] = '1;
                             pcie_tlast_o[i] = '0;
 
-                            buf_for_32_next = wready_o[i] && wvalid_i[i] ? wdata_i[i][127:32] : buf_for_32_next;
+                            buf_for_32_next = wready_o[i] && wvalid_i[i] ? wdata_le[127:32] : buf_for_32_next;
 
                             wlast_was_next = wvalid_i[i] && wready_o[i] && wlast_i[i] ? '1 : wlast_was;
                         end
@@ -233,7 +244,7 @@ module kdma_dmawr_sink #(
                         wready_o[i] = bvalid_o ? '0 : pcie_ready_i[i];
 
                         pcie_valid_o[i] = bvalid_o ? '0 : wvalid_i[i];
-                        pcie_data_o[i]  = wdata_i[i];
+                        pcie_data_o[i]  = wdata_le;
                         pcie_tkeep_o[i] = '1;
                         pcie_tlast_o[i] = wlast_i[i];
 
