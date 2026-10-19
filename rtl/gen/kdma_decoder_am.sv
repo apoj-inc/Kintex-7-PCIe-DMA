@@ -145,15 +145,17 @@ module kdma_decoder_am (
     
 
     
+    generate
+        genvar i0;
+        for(i0=0; i0<8; i0++) begin : genblk0
+            // External register: kdma_decoder_am.DMA_TASK_REG[]
 
-    for(genvar i0=0; i0<8; i0++) begin
-        // External register: kdma_decoder_am.DMA_TASK_REG[]
-
-        assign hwif_out.DMA_TASK_REG[i0].req = decoded_req_is_wr ? decoded_reg_strb.DMA_TASK_REG[i0] : '0;
-        assign hwif_out.DMA_TASK_REG[i0].req_is_wr = decoded_req_is_wr;
-        assign hwif_out.DMA_TASK_REG[i0].wr_data = decoded_wr_data;
-        assign hwif_out.DMA_TASK_REG[i0].wr_biten = decoded_wr_biten;
-    end
+            assign hwif_out.DMA_TASK_REG[i0].req = decoded_req_is_wr ? decoded_reg_strb.DMA_TASK_REG[i0] : '0;
+            assign hwif_out.DMA_TASK_REG[i0].req_is_wr = decoded_req_is_wr;
+            assign hwif_out.DMA_TASK_REG[i0].wr_data = decoded_wr_data;
+            assign hwif_out.DMA_TASK_REG[i0].wr_biten = decoded_wr_biten;
+        end
+    endgenerate
 
     //--------------------------------------------------------------------------
     // Write response

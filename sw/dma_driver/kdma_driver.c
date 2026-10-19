@@ -73,6 +73,9 @@ static ssize_t read_from_pci(struct file *filp, char __user *user_buf, size_t le
     int dev_ind;
 
     for (int i = 0; i < 16; i++) {
+        if (!device_array[i]) {
+            continue;
+        }
         if (MAJOR(device_array[i]->driver_dev_nr) == MAJOR(filp->f_inode->i_rdev)) {
             dev_ind = i;
             break;
@@ -166,6 +169,9 @@ static ssize_t write_to_pci(struct file *filp, const char __user *user_buf, size
     int dev_ind;
 
     for (int i = 0; i < 16; i++) {
+        if (!device_array[i]) {
+            continue;
+        }
         if (MAJOR(device_array[i]->driver_dev_nr) == MAJOR(filp->f_inode->i_rdev)) {
             dev_ind = i;
             break;

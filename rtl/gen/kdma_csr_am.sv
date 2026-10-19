@@ -204,83 +204,86 @@ module kdma_csr_am (
         end
     end
     assign hwif_out.GLOBAL_REG.DMA_RESET.value = field_storage.GLOBAL_REG.DMA_RESET.value;
-    for(genvar i0=0; i0<8; i0++) begin
-        // Field: kdma_csr_am.STRUCT_REGS[].PTR_ADDR_WIDTH_REG.DMA_ADDR
-        always_comb begin
-            automatic logic [63:0] next_c;
-            automatic logic load_next_c;
-            next_c = field_storage.STRUCT_REGS[i0].PTR_ADDR_WIDTH_REG.DMA_ADDR.value;
-            load_next_c = '0;
-            if(decoded_reg_strb.STRUCT_REGS[i0].PTR_ADDR_WIDTH_REG && decoded_req_is_wr) begin // SW write
-                next_c = (field_storage.STRUCT_REGS[i0].PTR_ADDR_WIDTH_REG.DMA_ADDR.value & ~decoded_wr_biten[95:32]) | (decoded_wr_data[95:32] & decoded_wr_biten[95:32]);
-                load_next_c = '1;
+    generate
+        genvar i0;
+        for(i0=0; i0<8; i0++) begin : genblk0
+            // Field: kdma_csr_am.STRUCT_REGS[].PTR_ADDR_WIDTH_REG.DMA_ADDR
+            always_comb begin
+                automatic logic [63:0] next_c;
+                automatic logic load_next_c;
+                next_c = field_storage.STRUCT_REGS[i0].PTR_ADDR_WIDTH_REG.DMA_ADDR.value;
+                load_next_c = '0;
+                if(decoded_reg_strb.STRUCT_REGS[i0].PTR_ADDR_WIDTH_REG && decoded_req_is_wr) begin // SW write
+                    next_c = (field_storage.STRUCT_REGS[i0].PTR_ADDR_WIDTH_REG.DMA_ADDR.value & ~decoded_wr_biten[95:32]) | (decoded_wr_data[95:32] & decoded_wr_biten[95:32]);
+                    load_next_c = '1;
+                end
+                field_combo.STRUCT_REGS[i0].PTR_ADDR_WIDTH_REG.DMA_ADDR.next = next_c;
+                field_combo.STRUCT_REGS[i0].PTR_ADDR_WIDTH_REG.DMA_ADDR.load_next = load_next_c;
             end
-            field_combo.STRUCT_REGS[i0].PTR_ADDR_WIDTH_REG.DMA_ADDR.next = next_c;
-            field_combo.STRUCT_REGS[i0].PTR_ADDR_WIDTH_REG.DMA_ADDR.load_next = load_next_c;
-        end
-        always_ff @(posedge clk or negedge arst_n) begin
-            if(~arst_n) begin
-                field_storage.STRUCT_REGS[i0].PTR_ADDR_WIDTH_REG.DMA_ADDR.value <= 64'h0;
-            end else begin
-                if(field_combo.STRUCT_REGS[i0].PTR_ADDR_WIDTH_REG.DMA_ADDR.load_next) begin
-                    field_storage.STRUCT_REGS[i0].PTR_ADDR_WIDTH_REG.DMA_ADDR.value <= field_combo.STRUCT_REGS[i0].PTR_ADDR_WIDTH_REG.DMA_ADDR.next;
+            always_ff @(posedge clk or negedge arst_n) begin
+                if(~arst_n) begin
+                    field_storage.STRUCT_REGS[i0].PTR_ADDR_WIDTH_REG.DMA_ADDR.value <= 64'h0;
+                end else begin
+                    if(field_combo.STRUCT_REGS[i0].PTR_ADDR_WIDTH_REG.DMA_ADDR.load_next) begin
+                        field_storage.STRUCT_REGS[i0].PTR_ADDR_WIDTH_REG.DMA_ADDR.value <= field_combo.STRUCT_REGS[i0].PTR_ADDR_WIDTH_REG.DMA_ADDR.next;
+                    end
                 end
             end
-        end
-        assign hwif_out.STRUCT_REGS[i0].PTR_ADDR_WIDTH_REG.DMA_ADDR.value = field_storage.STRUCT_REGS[i0].PTR_ADDR_WIDTH_REG.DMA_ADDR.value;
-        // Field: kdma_csr_am.STRUCT_REGS[].IRQ_CSR_REG.DMAWR_IRQ_CLR
-        always_comb begin
-            automatic logic [0:0] next_c;
-            automatic logic load_next_c;
-            next_c = field_storage.STRUCT_REGS[i0].IRQ_CSR_REG.DMAWR_IRQ_CLR.value;
-            load_next_c = '0;
-            if(decoded_reg_strb.STRUCT_REGS[i0].IRQ_CSR_REG && decoded_req_is_wr) begin // SW write
-                next_c = (field_storage.STRUCT_REGS[i0].IRQ_CSR_REG.DMAWR_IRQ_CLR.value & ~decoded_wr_biten[0:0]) | (decoded_wr_data[0:0] & decoded_wr_biten[0:0]);
-                load_next_c = '1;
-            end else begin // singlepulse clears back to 0
-                next_c = '0;
-                load_next_c = '1;
+            assign hwif_out.STRUCT_REGS[i0].PTR_ADDR_WIDTH_REG.DMA_ADDR.value = field_storage.STRUCT_REGS[i0].PTR_ADDR_WIDTH_REG.DMA_ADDR.value;
+            // Field: kdma_csr_am.STRUCT_REGS[].IRQ_CSR_REG.DMAWR_IRQ_CLR
+            always_comb begin
+                automatic logic [0:0] next_c;
+                automatic logic load_next_c;
+                next_c = field_storage.STRUCT_REGS[i0].IRQ_CSR_REG.DMAWR_IRQ_CLR.value;
+                load_next_c = '0;
+                if(decoded_reg_strb.STRUCT_REGS[i0].IRQ_CSR_REG && decoded_req_is_wr) begin // SW write
+                    next_c = (field_storage.STRUCT_REGS[i0].IRQ_CSR_REG.DMAWR_IRQ_CLR.value & ~decoded_wr_biten[0:0]) | (decoded_wr_data[0:0] & decoded_wr_biten[0:0]);
+                    load_next_c = '1;
+                end else begin // singlepulse clears back to 0
+                    next_c = '0;
+                    load_next_c = '1;
+                end
+                field_combo.STRUCT_REGS[i0].IRQ_CSR_REG.DMAWR_IRQ_CLR.next = next_c;
+                field_combo.STRUCT_REGS[i0].IRQ_CSR_REG.DMAWR_IRQ_CLR.load_next = load_next_c;
             end
-            field_combo.STRUCT_REGS[i0].IRQ_CSR_REG.DMAWR_IRQ_CLR.next = next_c;
-            field_combo.STRUCT_REGS[i0].IRQ_CSR_REG.DMAWR_IRQ_CLR.load_next = load_next_c;
-        end
-        always_ff @(posedge clk or negedge arst_n) begin
-            if(~arst_n) begin
-                field_storage.STRUCT_REGS[i0].IRQ_CSR_REG.DMAWR_IRQ_CLR.value <= 1'h0;
-            end else begin
-                if(field_combo.STRUCT_REGS[i0].IRQ_CSR_REG.DMAWR_IRQ_CLR.load_next) begin
-                    field_storage.STRUCT_REGS[i0].IRQ_CSR_REG.DMAWR_IRQ_CLR.value <= field_combo.STRUCT_REGS[i0].IRQ_CSR_REG.DMAWR_IRQ_CLR.next;
+            always_ff @(posedge clk or negedge arst_n) begin
+                if(~arst_n) begin
+                    field_storage.STRUCT_REGS[i0].IRQ_CSR_REG.DMAWR_IRQ_CLR.value <= 1'h0;
+                end else begin
+                    if(field_combo.STRUCT_REGS[i0].IRQ_CSR_REG.DMAWR_IRQ_CLR.load_next) begin
+                        field_storage.STRUCT_REGS[i0].IRQ_CSR_REG.DMAWR_IRQ_CLR.value <= field_combo.STRUCT_REGS[i0].IRQ_CSR_REG.DMAWR_IRQ_CLR.next;
+                    end
                 end
             end
-        end
-        assign hwif_out.STRUCT_REGS[i0].IRQ_CSR_REG.DMAWR_IRQ_CLR.value = field_storage.STRUCT_REGS[i0].IRQ_CSR_REG.DMAWR_IRQ_CLR.value;
-        // Field: kdma_csr_am.STRUCT_REGS[].IRQ_CSR_REG.DMARD_IRQ_CLR
-        always_comb begin
-            automatic logic [0:0] next_c;
-            automatic logic load_next_c;
-            next_c = field_storage.STRUCT_REGS[i0].IRQ_CSR_REG.DMARD_IRQ_CLR.value;
-            load_next_c = '0;
-            if(decoded_reg_strb.STRUCT_REGS[i0].IRQ_CSR_REG && decoded_req_is_wr) begin // SW write
-                next_c = (field_storage.STRUCT_REGS[i0].IRQ_CSR_REG.DMARD_IRQ_CLR.value & ~decoded_wr_biten[1:1]) | (decoded_wr_data[1:1] & decoded_wr_biten[1:1]);
-                load_next_c = '1;
-            end else begin // singlepulse clears back to 0
-                next_c = '0;
-                load_next_c = '1;
+            assign hwif_out.STRUCT_REGS[i0].IRQ_CSR_REG.DMAWR_IRQ_CLR.value = field_storage.STRUCT_REGS[i0].IRQ_CSR_REG.DMAWR_IRQ_CLR.value;
+            // Field: kdma_csr_am.STRUCT_REGS[].IRQ_CSR_REG.DMARD_IRQ_CLR
+            always_comb begin
+                automatic logic [0:0] next_c;
+                automatic logic load_next_c;
+                next_c = field_storage.STRUCT_REGS[i0].IRQ_CSR_REG.DMARD_IRQ_CLR.value;
+                load_next_c = '0;
+                if(decoded_reg_strb.STRUCT_REGS[i0].IRQ_CSR_REG && decoded_req_is_wr) begin // SW write
+                    next_c = (field_storage.STRUCT_REGS[i0].IRQ_CSR_REG.DMARD_IRQ_CLR.value & ~decoded_wr_biten[1:1]) | (decoded_wr_data[1:1] & decoded_wr_biten[1:1]);
+                    load_next_c = '1;
+                end else begin // singlepulse clears back to 0
+                    next_c = '0;
+                    load_next_c = '1;
+                end
+                field_combo.STRUCT_REGS[i0].IRQ_CSR_REG.DMARD_IRQ_CLR.next = next_c;
+                field_combo.STRUCT_REGS[i0].IRQ_CSR_REG.DMARD_IRQ_CLR.load_next = load_next_c;
             end
-            field_combo.STRUCT_REGS[i0].IRQ_CSR_REG.DMARD_IRQ_CLR.next = next_c;
-            field_combo.STRUCT_REGS[i0].IRQ_CSR_REG.DMARD_IRQ_CLR.load_next = load_next_c;
-        end
-        always_ff @(posedge clk or negedge arst_n) begin
-            if(~arst_n) begin
-                field_storage.STRUCT_REGS[i0].IRQ_CSR_REG.DMARD_IRQ_CLR.value <= 1'h0;
-            end else begin
-                if(field_combo.STRUCT_REGS[i0].IRQ_CSR_REG.DMARD_IRQ_CLR.load_next) begin
-                    field_storage.STRUCT_REGS[i0].IRQ_CSR_REG.DMARD_IRQ_CLR.value <= field_combo.STRUCT_REGS[i0].IRQ_CSR_REG.DMARD_IRQ_CLR.next;
+            always_ff @(posedge clk or negedge arst_n) begin
+                if(~arst_n) begin
+                    field_storage.STRUCT_REGS[i0].IRQ_CSR_REG.DMARD_IRQ_CLR.value <= 1'h0;
+                end else begin
+                    if(field_combo.STRUCT_REGS[i0].IRQ_CSR_REG.DMARD_IRQ_CLR.load_next) begin
+                        field_storage.STRUCT_REGS[i0].IRQ_CSR_REG.DMARD_IRQ_CLR.value <= field_combo.STRUCT_REGS[i0].IRQ_CSR_REG.DMARD_IRQ_CLR.next;
+                    end
                 end
             end
+            assign hwif_out.STRUCT_REGS[i0].IRQ_CSR_REG.DMARD_IRQ_CLR.value = field_storage.STRUCT_REGS[i0].IRQ_CSR_REG.DMARD_IRQ_CLR.value;
         end
-        assign hwif_out.STRUCT_REGS[i0].IRQ_CSR_REG.DMARD_IRQ_CLR.value = field_storage.STRUCT_REGS[i0].IRQ_CSR_REG.DMARD_IRQ_CLR.value;
-    end
+    endgenerate
 
     //--------------------------------------------------------------------------
     // Write response

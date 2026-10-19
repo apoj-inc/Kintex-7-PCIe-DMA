@@ -50,14 +50,14 @@ module kdma_dmawr_sink #(
     generate
         genvar i;
 
-        for (i = 0; i < DMA_CHANNEL_COUNT; i++) begin
+        for (i = 0; i < DMA_CHANNEL_COUNT; i++) begin : foreach_axi_ch
             genvar j;
 
             state_t state, state_next;
 
             logic [127:0] wdata_le;
 
-            for (j = 0; j < 4; j++) begin
+            for (j = 0; j < 4; j++) begin : endian_fix
                 assign wdata_le[j*32 +: 32] =  {wdata_i[i][j*32 + 0  +: 8],
                                                 wdata_i[i][j*32 + 8  +: 8],
                                                 wdata_i[i][j*32 + 16 +: 8],

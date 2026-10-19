@@ -150,77 +150,80 @@ module kdma_msix_am (
     } field_storage_t;
     field_storage_t field_storage;
 
-    for(genvar i0=0; i0<16; i0++) begin
-        // Field: kdma_msix_am.MSIX_ENTRY_REG[].ADDR
-        always_comb begin
-            automatic logic [63:0] next_c;
-            automatic logic load_next_c;
-            next_c = field_storage.MSIX_ENTRY_REG[i0].ADDR.value;
-            load_next_c = '0;
-            if(decoded_reg_strb.MSIX_ENTRY_REG[i0] && decoded_req_is_wr) begin // SW write
-                next_c = (field_storage.MSIX_ENTRY_REG[i0].ADDR.value & ~decoded_wr_biten[63:0]) | (decoded_wr_data[63:0] & decoded_wr_biten[63:0]);
-                load_next_c = '1;
+    generate
+        genvar i0;
+        for(i0=0; i0<16; i0++) begin : genblk0
+            // Field: kdma_msix_am.MSIX_ENTRY_REG[].ADDR
+            always_comb begin
+                automatic logic [63:0] next_c;
+                automatic logic load_next_c;
+                next_c = field_storage.MSIX_ENTRY_REG[i0].ADDR.value;
+                load_next_c = '0;
+                if(decoded_reg_strb.MSIX_ENTRY_REG[i0] && decoded_req_is_wr) begin // SW write
+                    next_c = (field_storage.MSIX_ENTRY_REG[i0].ADDR.value & ~decoded_wr_biten[63:0]) | (decoded_wr_data[63:0] & decoded_wr_biten[63:0]);
+                    load_next_c = '1;
+                end
+                field_combo.MSIX_ENTRY_REG[i0].ADDR.next = next_c;
+                field_combo.MSIX_ENTRY_REG[i0].ADDR.load_next = load_next_c;
             end
-            field_combo.MSIX_ENTRY_REG[i0].ADDR.next = next_c;
-            field_combo.MSIX_ENTRY_REG[i0].ADDR.load_next = load_next_c;
-        end
-        always_ff @(posedge clk or negedge arst_n) begin
-            if(~arst_n) begin
-                field_storage.MSIX_ENTRY_REG[i0].ADDR.value <= 64'h0;
-            end else begin
-                if(field_combo.MSIX_ENTRY_REG[i0].ADDR.load_next) begin
-                    field_storage.MSIX_ENTRY_REG[i0].ADDR.value <= field_combo.MSIX_ENTRY_REG[i0].ADDR.next;
+            always_ff @(posedge clk or negedge arst_n) begin
+                if(~arst_n) begin
+                    field_storage.MSIX_ENTRY_REG[i0].ADDR.value <= 64'h0;
+                end else begin
+                    if(field_combo.MSIX_ENTRY_REG[i0].ADDR.load_next) begin
+                        field_storage.MSIX_ENTRY_REG[i0].ADDR.value <= field_combo.MSIX_ENTRY_REG[i0].ADDR.next;
+                    end
                 end
             end
-        end
-        assign hwif_out.MSIX_ENTRY_REG[i0].ADDR.value = field_storage.MSIX_ENTRY_REG[i0].ADDR.value;
-        // Field: kdma_msix_am.MSIX_ENTRY_REG[].DATA
-        always_comb begin
-            automatic logic [31:0] next_c;
-            automatic logic load_next_c;
-            next_c = field_storage.MSIX_ENTRY_REG[i0].DATA.value;
-            load_next_c = '0;
-            if(decoded_reg_strb.MSIX_ENTRY_REG[i0] && decoded_req_is_wr) begin // SW write
-                next_c = (field_storage.MSIX_ENTRY_REG[i0].DATA.value & ~decoded_wr_biten[95:64]) | (decoded_wr_data[95:64] & decoded_wr_biten[95:64]);
-                load_next_c = '1;
+            assign hwif_out.MSIX_ENTRY_REG[i0].ADDR.value = field_storage.MSIX_ENTRY_REG[i0].ADDR.value;
+            // Field: kdma_msix_am.MSIX_ENTRY_REG[].DATA
+            always_comb begin
+                automatic logic [31:0] next_c;
+                automatic logic load_next_c;
+                next_c = field_storage.MSIX_ENTRY_REG[i0].DATA.value;
+                load_next_c = '0;
+                if(decoded_reg_strb.MSIX_ENTRY_REG[i0] && decoded_req_is_wr) begin // SW write
+                    next_c = (field_storage.MSIX_ENTRY_REG[i0].DATA.value & ~decoded_wr_biten[95:64]) | (decoded_wr_data[95:64] & decoded_wr_biten[95:64]);
+                    load_next_c = '1;
+                end
+                field_combo.MSIX_ENTRY_REG[i0].DATA.next = next_c;
+                field_combo.MSIX_ENTRY_REG[i0].DATA.load_next = load_next_c;
             end
-            field_combo.MSIX_ENTRY_REG[i0].DATA.next = next_c;
-            field_combo.MSIX_ENTRY_REG[i0].DATA.load_next = load_next_c;
-        end
-        always_ff @(posedge clk or negedge arst_n) begin
-            if(~arst_n) begin
-                field_storage.MSIX_ENTRY_REG[i0].DATA.value <= 32'h0;
-            end else begin
-                if(field_combo.MSIX_ENTRY_REG[i0].DATA.load_next) begin
-                    field_storage.MSIX_ENTRY_REG[i0].DATA.value <= field_combo.MSIX_ENTRY_REG[i0].DATA.next;
+            always_ff @(posedge clk or negedge arst_n) begin
+                if(~arst_n) begin
+                    field_storage.MSIX_ENTRY_REG[i0].DATA.value <= 32'h0;
+                end else begin
+                    if(field_combo.MSIX_ENTRY_REG[i0].DATA.load_next) begin
+                        field_storage.MSIX_ENTRY_REG[i0].DATA.value <= field_combo.MSIX_ENTRY_REG[i0].DATA.next;
+                    end
                 end
             end
-        end
-        assign hwif_out.MSIX_ENTRY_REG[i0].DATA.value = field_storage.MSIX_ENTRY_REG[i0].DATA.value;
-        // Field: kdma_msix_am.MSIX_ENTRY_REG[].MASK
-        always_comb begin
-            automatic logic [0:0] next_c;
-            automatic logic load_next_c;
-            next_c = field_storage.MSIX_ENTRY_REG[i0].MASK.value;
-            load_next_c = '0;
-            if(decoded_reg_strb.MSIX_ENTRY_REG[i0] && decoded_req_is_wr) begin // SW write
-                next_c = (field_storage.MSIX_ENTRY_REG[i0].MASK.value & ~decoded_wr_biten[96:96]) | (decoded_wr_data[96:96] & decoded_wr_biten[96:96]);
-                load_next_c = '1;
+            assign hwif_out.MSIX_ENTRY_REG[i0].DATA.value = field_storage.MSIX_ENTRY_REG[i0].DATA.value;
+            // Field: kdma_msix_am.MSIX_ENTRY_REG[].MASK
+            always_comb begin
+                automatic logic [0:0] next_c;
+                automatic logic load_next_c;
+                next_c = field_storage.MSIX_ENTRY_REG[i0].MASK.value;
+                load_next_c = '0;
+                if(decoded_reg_strb.MSIX_ENTRY_REG[i0] && decoded_req_is_wr) begin // SW write
+                    next_c = (field_storage.MSIX_ENTRY_REG[i0].MASK.value & ~decoded_wr_biten[96:96]) | (decoded_wr_data[96:96] & decoded_wr_biten[96:96]);
+                    load_next_c = '1;
+                end
+                field_combo.MSIX_ENTRY_REG[i0].MASK.next = next_c;
+                field_combo.MSIX_ENTRY_REG[i0].MASK.load_next = load_next_c;
             end
-            field_combo.MSIX_ENTRY_REG[i0].MASK.next = next_c;
-            field_combo.MSIX_ENTRY_REG[i0].MASK.load_next = load_next_c;
-        end
-        always_ff @(posedge clk or negedge arst_n) begin
-            if(~arst_n) begin
-                field_storage.MSIX_ENTRY_REG[i0].MASK.value <= 1'h1;
-            end else begin
-                if(field_combo.MSIX_ENTRY_REG[i0].MASK.load_next) begin
-                    field_storage.MSIX_ENTRY_REG[i0].MASK.value <= field_combo.MSIX_ENTRY_REG[i0].MASK.next;
+            always_ff @(posedge clk or negedge arst_n) begin
+                if(~arst_n) begin
+                    field_storage.MSIX_ENTRY_REG[i0].MASK.value <= 1'h1;
+                end else begin
+                    if(field_combo.MSIX_ENTRY_REG[i0].MASK.load_next) begin
+                        field_storage.MSIX_ENTRY_REG[i0].MASK.value <= field_combo.MSIX_ENTRY_REG[i0].MASK.next;
+                    end
                 end
             end
+            assign hwif_out.MSIX_ENTRY_REG[i0].MASK.value = field_storage.MSIX_ENTRY_REG[i0].MASK.value;
         end
-        assign hwif_out.MSIX_ENTRY_REG[i0].MASK.value = field_storage.MSIX_ENTRY_REG[i0].MASK.value;
-    end
+    endgenerate
 
     //--------------------------------------------------------------------------
     // Write response

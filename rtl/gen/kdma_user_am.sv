@@ -157,100 +157,103 @@ module kdma_user_am (
     } field_storage_t;
     field_storage_t field_storage;
 
-    for(genvar i0=0; i0<2; i0++) begin
-        // Field: kdma_user_am.USER_IRQ_QUART_REG[].IRQ_CONTROL_0
-        always_comb begin
-            automatic logic [0:0] next_c;
-            automatic logic load_next_c;
-            next_c = field_storage.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_0.value;
-            load_next_c = '0;
-            if(decoded_reg_strb.USER_IRQ_QUART_REG[i0] && decoded_req_is_wr) begin // SW write
-                next_c = (field_storage.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_0.value & ~decoded_wr_biten[0:0]) | (decoded_wr_data[0:0] & decoded_wr_biten[0:0]);
-                load_next_c = '1;
+    generate
+        genvar i0;
+        for(i0=0; i0<2; i0++) begin : genblk0
+            // Field: kdma_user_am.USER_IRQ_QUART_REG[].IRQ_CONTROL_0
+            always_comb begin
+                automatic logic [0:0] next_c;
+                automatic logic load_next_c;
+                next_c = field_storage.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_0.value;
+                load_next_c = '0;
+                if(decoded_reg_strb.USER_IRQ_QUART_REG[i0] && decoded_req_is_wr) begin // SW write
+                    next_c = (field_storage.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_0.value & ~decoded_wr_biten[0:0]) | (decoded_wr_data[0:0] & decoded_wr_biten[0:0]);
+                    load_next_c = '1;
+                end
+                field_combo.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_0.next = next_c;
+                field_combo.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_0.load_next = load_next_c;
             end
-            field_combo.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_0.next = next_c;
-            field_combo.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_0.load_next = load_next_c;
-        end
-        always_ff @(posedge clk or negedge arst_n) begin
-            if(~arst_n) begin
-                field_storage.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_0.value <= 1'h0;
-            end else begin
-                if(field_combo.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_0.load_next) begin
-                    field_storage.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_0.value <= field_combo.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_0.next;
+            always_ff @(posedge clk or negedge arst_n) begin
+                if(~arst_n) begin
+                    field_storage.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_0.value <= 1'h0;
+                end else begin
+                    if(field_combo.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_0.load_next) begin
+                        field_storage.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_0.value <= field_combo.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_0.next;
+                    end
                 end
             end
-        end
-        assign hwif_out.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_0.value = field_storage.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_0.value;
-        // Field: kdma_user_am.USER_IRQ_QUART_REG[].IRQ_CONTROL_1
-        always_comb begin
-            automatic logic [0:0] next_c;
-            automatic logic load_next_c;
-            next_c = field_storage.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_1.value;
-            load_next_c = '0;
-            if(decoded_reg_strb.USER_IRQ_QUART_REG[i0] && decoded_req_is_wr) begin // SW write
-                next_c = (field_storage.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_1.value & ~decoded_wr_biten[32:32]) | (decoded_wr_data[32:32] & decoded_wr_biten[32:32]);
-                load_next_c = '1;
+            assign hwif_out.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_0.value = field_storage.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_0.value;
+            // Field: kdma_user_am.USER_IRQ_QUART_REG[].IRQ_CONTROL_1
+            always_comb begin
+                automatic logic [0:0] next_c;
+                automatic logic load_next_c;
+                next_c = field_storage.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_1.value;
+                load_next_c = '0;
+                if(decoded_reg_strb.USER_IRQ_QUART_REG[i0] && decoded_req_is_wr) begin // SW write
+                    next_c = (field_storage.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_1.value & ~decoded_wr_biten[32:32]) | (decoded_wr_data[32:32] & decoded_wr_biten[32:32]);
+                    load_next_c = '1;
+                end
+                field_combo.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_1.next = next_c;
+                field_combo.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_1.load_next = load_next_c;
             end
-            field_combo.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_1.next = next_c;
-            field_combo.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_1.load_next = load_next_c;
-        end
-        always_ff @(posedge clk or negedge arst_n) begin
-            if(~arst_n) begin
-                field_storage.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_1.value <= 1'h0;
-            end else begin
-                if(field_combo.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_1.load_next) begin
-                    field_storage.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_1.value <= field_combo.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_1.next;
+            always_ff @(posedge clk or negedge arst_n) begin
+                if(~arst_n) begin
+                    field_storage.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_1.value <= 1'h0;
+                end else begin
+                    if(field_combo.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_1.load_next) begin
+                        field_storage.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_1.value <= field_combo.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_1.next;
+                    end
                 end
             end
-        end
-        assign hwif_out.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_1.value = field_storage.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_1.value;
-        // Field: kdma_user_am.USER_IRQ_QUART_REG[].IRQ_CONTROL_2
-        always_comb begin
-            automatic logic [0:0] next_c;
-            automatic logic load_next_c;
-            next_c = field_storage.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_2.value;
-            load_next_c = '0;
-            if(decoded_reg_strb.USER_IRQ_QUART_REG[i0] && decoded_req_is_wr) begin // SW write
-                next_c = (field_storage.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_2.value & ~decoded_wr_biten[64:64]) | (decoded_wr_data[64:64] & decoded_wr_biten[64:64]);
-                load_next_c = '1;
+            assign hwif_out.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_1.value = field_storage.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_1.value;
+            // Field: kdma_user_am.USER_IRQ_QUART_REG[].IRQ_CONTROL_2
+            always_comb begin
+                automatic logic [0:0] next_c;
+                automatic logic load_next_c;
+                next_c = field_storage.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_2.value;
+                load_next_c = '0;
+                if(decoded_reg_strb.USER_IRQ_QUART_REG[i0] && decoded_req_is_wr) begin // SW write
+                    next_c = (field_storage.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_2.value & ~decoded_wr_biten[64:64]) | (decoded_wr_data[64:64] & decoded_wr_biten[64:64]);
+                    load_next_c = '1;
+                end
+                field_combo.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_2.next = next_c;
+                field_combo.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_2.load_next = load_next_c;
             end
-            field_combo.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_2.next = next_c;
-            field_combo.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_2.load_next = load_next_c;
-        end
-        always_ff @(posedge clk or negedge arst_n) begin
-            if(~arst_n) begin
-                field_storage.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_2.value <= 1'h0;
-            end else begin
-                if(field_combo.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_2.load_next) begin
-                    field_storage.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_2.value <= field_combo.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_2.next;
+            always_ff @(posedge clk or negedge arst_n) begin
+                if(~arst_n) begin
+                    field_storage.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_2.value <= 1'h0;
+                end else begin
+                    if(field_combo.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_2.load_next) begin
+                        field_storage.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_2.value <= field_combo.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_2.next;
+                    end
                 end
             end
-        end
-        assign hwif_out.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_2.value = field_storage.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_2.value;
-        // Field: kdma_user_am.USER_IRQ_QUART_REG[].IRQ_CONTROL_3
-        always_comb begin
-            automatic logic [0:0] next_c;
-            automatic logic load_next_c;
-            next_c = field_storage.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_3.value;
-            load_next_c = '0;
-            if(decoded_reg_strb.USER_IRQ_QUART_REG[i0] && decoded_req_is_wr) begin // SW write
-                next_c = (field_storage.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_3.value & ~decoded_wr_biten[96:96]) | (decoded_wr_data[96:96] & decoded_wr_biten[96:96]);
-                load_next_c = '1;
+            assign hwif_out.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_2.value = field_storage.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_2.value;
+            // Field: kdma_user_am.USER_IRQ_QUART_REG[].IRQ_CONTROL_3
+            always_comb begin
+                automatic logic [0:0] next_c;
+                automatic logic load_next_c;
+                next_c = field_storage.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_3.value;
+                load_next_c = '0;
+                if(decoded_reg_strb.USER_IRQ_QUART_REG[i0] && decoded_req_is_wr) begin // SW write
+                    next_c = (field_storage.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_3.value & ~decoded_wr_biten[96:96]) | (decoded_wr_data[96:96] & decoded_wr_biten[96:96]);
+                    load_next_c = '1;
+                end
+                field_combo.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_3.next = next_c;
+                field_combo.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_3.load_next = load_next_c;
             end
-            field_combo.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_3.next = next_c;
-            field_combo.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_3.load_next = load_next_c;
-        end
-        always_ff @(posedge clk or negedge arst_n) begin
-            if(~arst_n) begin
-                field_storage.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_3.value <= 1'h0;
-            end else begin
-                if(field_combo.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_3.load_next) begin
-                    field_storage.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_3.value <= field_combo.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_3.next;
+            always_ff @(posedge clk or negedge arst_n) begin
+                if(~arst_n) begin
+                    field_storage.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_3.value <= 1'h0;
+                end else begin
+                    if(field_combo.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_3.load_next) begin
+                        field_storage.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_3.value <= field_combo.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_3.next;
+                    end
                 end
             end
+            assign hwif_out.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_3.value = field_storage.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_3.value;
         end
-        assign hwif_out.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_3.value = field_storage.USER_IRQ_QUART_REG[i0].IRQ_CONTROL_3.value;
-    end
+    endgenerate
 
     //--------------------------------------------------------------------------
     // Write response
