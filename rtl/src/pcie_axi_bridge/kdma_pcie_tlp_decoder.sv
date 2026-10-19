@@ -87,6 +87,7 @@ module kdma_pcie_tlp_decoder #(
     assign bar_pstrb_o   = bar_pstrb  ;
 
     logic [127:0] bar_prdata_le [BAR_COUNT];
+    logic [127:0] dmard_data_be;
     generate
         genvar i, j;
 
@@ -99,11 +100,16 @@ module kdma_pcie_tlp_decoder #(
             end
         end
 
-        for (i = 0; i < 4; i++) begin : pwdata_endian_inverter
+        for (i = 0; i < 4; i++) begin : dmard_and_pwdata_endian_inverter
             assign bar_pwdata_o[i*32 +: 32] =  {bar_pwdata[i*32 + 0  +: 8],
                                                 bar_pwdata[i*32 + 8  +: 8],
                                                 bar_pwdata[i*32 + 16 +: 8],
                                                 bar_pwdata[i*32 + 24 +: 8]};
+
+            assign dmard_data_o[i*32 +: 32] =  {dmard_data_be[i*32 + 0  +: 8],
+                                                dmard_data_be[i*32 + 8  +: 8],
+                                                dmard_data_be[i*32 + 16 +: 8],
+                                                dmard_data_be[i*32 + 24 +: 8]};
         end
     endgenerate
 
@@ -273,7 +279,7 @@ module kdma_pcie_tlp_decoder #(
         pcie_detach_ready_o = '0;
 
         dmard_valid_o = '0;
-        dmard_data_o = '0;
+        dmard_data_be = '0;
         dmard_last_o = '0;
 
         pcie_valid_o = '0;
@@ -587,7 +593,7 @@ module kdma_pcie_tlp_decoder #(
                 dmard_valid_o[tag_saved] = pcie_detach_valid_i;
                 pcie_detach_ready_o = dmard_ready_i[tag_saved];
 
-                dmard_data_o = pcie_detach_data_i;
+                dmard_data_be = pcie_detach_data_i;
                 dmard_last_o = trigger_last ? pcie_detach_eof_i[4] : '0;
             end
             default     : begin

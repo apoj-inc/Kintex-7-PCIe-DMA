@@ -560,6 +560,8 @@ initial begin
             exp = axi_data_in[i].pop_front();
             recv = pcie_data_out[i].pop_front();
 
+            exp.dword = {exp.dword[7:0], exp.dword[15:8], exp.dword[23:16], exp.dword[31:24]};
+
             assert (exp.dword == recv.dword) 
             else   begin
                 $display("PCIe out channel %d data mismatch: %x axi at %d ns, %x pcie at %d ns", i, exp.dword, exp.timestamp, recv.dword, recv.timestamp);
@@ -593,6 +595,8 @@ initial begin
         while (axi_data_out[i].size && pcie_data_in[i].size) begin
             exp = axi_data_out[i].pop_front();
             recv = pcie_data_in[i].pop_front();
+
+            exp.dword = {exp.dword[7:0], exp.dword[15:8], exp.dword[23:16], exp.dword[31:24]};
 
             assert (exp.dword == recv.dword) 
             else   begin
