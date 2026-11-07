@@ -34,5 +34,7 @@ rtl/src/example/kdma_user_flatten.sv
 rtl/src/example/kdma_aurora_example.sv
 rtl/src/example/kdma_aurora_traffic_gen.sv
 rtl/src/example/kdma_echodevice_ip_aurora.sv
+rtl/src/example/kdma_aurora_receiver.sv
+rtl/src/example/kdma_aurora_sender.sv
 rtl/src/kdma_engine_bridged.sv
 rtl/src/kdma_toplevel.sv

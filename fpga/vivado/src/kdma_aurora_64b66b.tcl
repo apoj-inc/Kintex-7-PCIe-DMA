@@ -15,7 +15,7 @@ if { [string first $scripts_vivado_version $current_vivado_version] == -1 } {
 ##################################################################
 
 # To test this script, run the following commands from Vivado Tcl console:
-# source aurora_64b66b_0.tcl
+# source kdma_aurora_64b66b_0.tcl
 # If there is no project opened, this script will create a
 # project, but make sure you do not have an existing project
 # <./project_1/project_1.xpr> in the current working folder.
@@ -57,10 +57,10 @@ if { $bCheckIPsPassed != 1 } {
 }
 
 ##################################################################
-# CREATE IP aurora_64b66b_0
+# CREATE IP kdma_aurora_64b66b_0
 ##################################################################
 
-set aurora_64b66b_0 [create_ip -name aurora_64b66b -vendor xilinx.com -library ip -version 12.0 -module_name aurora_64b66b_0]
+set kdma_aurora_64b66b_0 [create_ip -name aurora_64b66b -vendor xilinx.com -library ip -version 12.0 -module_name kdma_aurora_64b66b_0]
 
 set_property -dict { 
   CONFIG.C_INIT_CLK {100}
@@ -73,11 +73,11 @@ set_property -dict {
   CONFIG.C_GT_LOC_1 {1}
   CONFIG.C_GT_CLOCK_1 {GTXQ0}
   CONFIG.SupportLevel {1}
-} [get_ips aurora_64b66b_0]
+} [get_ips kdma_aurora_64b66b_0]
 
 set_property -dict { 
   GENERATE_SYNTH_CHECKPOINT {1}
-} $aurora_64b66b_0
+} $kdma_aurora_64b66b_0
 
 ##################################################################
 

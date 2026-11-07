@@ -1,3 +1,3 @@
-fpga/vivado/src/pcie_7x_0.tcl
-fpga/vivado/src/aurora_64b66b_0.tcl
-fpga/vivado/src/ila_0.tcl
+fpga/vivado/src/kdma_pcie_7x_0.tcl
+fpga/vivado/src/kdma_aurora_64b66b_0.tcl
+fpga/vivado/src/kdma_ila_0.tcl

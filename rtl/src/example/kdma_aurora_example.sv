@@ -34,7 +34,7 @@ module kdma_aurora_example (
         counter <= (counter == 150) ? counter : counter + 1;
     end
 
-    ila_0 u_ila_0 (
+    kdma_ila_0 u_ila_0 (
         .clk    (clk_100m),
 
         .probe0 (pma_init),
@@ -49,7 +49,7 @@ module kdma_aurora_example (
         .probe9 (counter )
     );
 
-    ila_0 u_ila_1 (
+    kdma_ila_0 u_ila_1 (
         .clk    (user_clk),
 
         .probe0 ('0      ),
@@ -73,7 +73,7 @@ module kdma_aurora_example (
         .data_o  (tx_data )
     );
 
-    aurora_64b66b_0 dut (
+    kdma_aurora_64b66b_0 dut (
         .pma_init          (pma_init ),
         .reset_pb          (reset_pb ),
 
