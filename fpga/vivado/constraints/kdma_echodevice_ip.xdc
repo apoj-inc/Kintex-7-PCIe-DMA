@@ -42,3 +42,6 @@ create_generated_clock -name clk_250mhz_mux_x0y0 \
 set_clock_groups -name pcieclkmux -physically_exclusive -group clk_125mhz_mux_x0y0 -group clk_250mhz_mux_x0y0
 
 set_false_path -from [get_ports sys_rst_n]
+
+set_property BITSTREAM.CONFIG.SPI_BUSWIDTH 4 [current_design]
+set_property CONFIG_MODE SPIx4 [current_design]
