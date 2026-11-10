@@ -327,7 +327,7 @@ module kdma_toplevel #(
     BUFG usr2 (.O(userclk2_buf), .I(userclk2));
     BUFG dclkbuf (.O(dclk), .I(clk_125mhz));
 
-    pcie_7x_0 u_pcie_7x_0 (
+    kdma_pcie_7x_0 u_pcie_7x_0 (
         .pci_exp_txp                  (pci_exp_txp        ),
         .pci_exp_txn                  (pci_exp_txn        ),
         .pci_exp_rxp                  (pci_exp_rxp        ),

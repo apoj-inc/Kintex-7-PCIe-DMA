@@ -20,28 +20,28 @@ module kdma_echodevice_ip #(
     parameter DMA_RQ_ADDR_WIDTH = $clog2(MAX_RQ_DEPTH)                                  ,
     parameter MSIX_COUNT        = DMA_CHANNEL_COUNT                                     
 ) (
-    input  logic                         clk_in_p                                ,
-    input  logic                         clk_in_n                                ,
+    input  logic                         clk_in_p     ,
+    input  logic                         clk_in_n     ,
 
-    input  logic                         sys_rst_n                               ,
+    input  logic                         sys_rst_n    ,
 
-    output logic                         pci_exp_tx0_p                           ,
-    output logic                         pci_exp_tx0_n                           ,
-    output logic                         pci_exp_tx1_p                           ,
-    output logic                         pci_exp_tx1_n                           ,
-    output logic                         pci_exp_tx2_p                           ,
-    output logic                         pci_exp_tx2_n                           ,
-    output logic                         pci_exp_tx3_p                           ,
-    output logic                         pci_exp_tx3_n                           ,
+    output logic                         pci_exp_tx0_p,
+    output logic                         pci_exp_tx0_n,
+    output logic                         pci_exp_tx1_p,
+    output logic                         pci_exp_tx1_n,
+    output logic                         pci_exp_tx2_p,
+    output logic                         pci_exp_tx2_n,
+    output logic                         pci_exp_tx3_p,
+    output logic                         pci_exp_tx3_n,
 
-    input  logic                         pci_exp_rx0_p                           ,
-    input  logic                         pci_exp_rx0_n                           ,
-    input  logic                         pci_exp_rx1_p                           ,
-    input  logic                         pci_exp_rx1_n                           ,
-    input  logic                         pci_exp_rx2_p                           ,
-    input  logic                         pci_exp_rx2_n                           ,
-    input  logic                         pci_exp_rx3_p                           ,
-    input  logic                         pci_exp_rx3_n                                                    
+    input  logic                         pci_exp_rx0_p,
+    input  logic                         pci_exp_rx0_n,
+    input  logic                         pci_exp_rx1_p,
+    input  logic                         pci_exp_rx1_n,
+    input  logic                         pci_exp_rx2_p,
+    input  logic                         pci_exp_rx2_n,
+    input  logic                         pci_exp_rx3_p,
+    input  logic                         pci_exp_rx3_n
 );
 
     logic                       dma_wrdata_valid [DMA_CHANNEL_COUNT];

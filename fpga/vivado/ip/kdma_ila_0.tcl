@@ -15,7 +15,7 @@ if { [string first $scripts_vivado_version $current_vivado_version] == -1 } {
 ##################################################################
 
 # To test this script, run the following commands from Vivado Tcl console:
-# source pcie_7x_0.tcl
+# source kdma_ila_0.tcl
 # If there is no project opened, this script will create a
 # project, but make sure you do not have an existing project
 # <./project_1/project_1.xpr> in the current working folder.
@@ -34,7 +34,7 @@ if { $list_projs eq "" } {
 set bCheckIPs 1
 set bCheckIPsPassed 1
 if { $bCheckIPs == 1 } {
-  set list_check_ips { xilinx.com:ip:pcie_7x:3.3 }
+  set list_check_ips { xilinx.com:ip:ila:6.2 }
   set list_ips_missing ""
   common::send_msg_id "IPS_TCL-1001" "INFO" "Checking if the following IPs exist in the project's IP catalog: $list_check_ips ."
 
@@ -57,57 +57,25 @@ if { $bCheckIPsPassed != 1 } {
 }
 
 ##################################################################
-# CREATE IP pcie_7x_0
+# CREATE IP kdma_ila_0
 ##################################################################
 
-set pcie_7x_0 [create_ip -name pcie_7x -vendor xilinx.com -library ip -version 3.3 -module_name pcie_7x_0]
+set kdma_ila_0 [create_ip -name ila -vendor xilinx.com -library ip -version 6.2 -module_name kdma_ila_0]
 
 set_property -dict { 
-  CONFIG.mode_selection {Advanced}
-  CONFIG.Maximum_Link_Width {X4}
-  CONFIG.Link_Speed {5.0_GT/s}
-  CONFIG.Interface_Width {128_bit}
-  CONFIG.User_Clk_Freq {125}
-  CONFIG.Bar0_64bit {true}
-  CONFIG.Bar0_Scale {Kilobytes}
-  CONFIG.Bar0_Size {4}
-  CONFIG.Bar2_Enabled {true}
-  CONFIG.Bar2_Type {Memory}
-  CONFIG.Bar2_64bit {true}
-  CONFIG.Bar2_Scale {Kilobytes}
-  CONFIG.Bar2_Size {16}
-  CONFIG.Device_ID {7024}
-  CONFIG.Max_Payload_Size {512_bytes}
-  CONFIG.Trgt_Link_Speed {4'h2}
-  CONFIG.IntX_Generation {false}
-  CONFIG.Legacy_Interrupt {NONE}
-  CONFIG.MSI_Enabled {false}
-  CONFIG.MSIx_Enabled {true}
-  CONFIG.MSIx_Table_Size {11}
-  CONFIG.MSIx_Table_BIR {BAR_1:0}
-  CONFIG.MSIx_PBA_Offset {20}
-  CONFIG.MSIx_PBA_BIR {BAR_1:0}
-  CONFIG.D1_PME_Support {false}
-  CONFIG.D2_PME_Support {false}
-  CONFIG.D3hot_PME_Support {false}
-  CONFIG.No_Soft_Reset {true}
-  CONFIG.DSN_Enabled {false}
-  CONFIG.PCIe_Blk_Locn {X0Y0}
-  CONFIG.Trans_Buf_Pipeline {None}
-  CONFIG.PCIe_Debug_Ports {false}
-  CONFIG.Ref_Clk_Freq {100_MHz}
-  CONFIG.RBAR_Num {0}
-  CONFIG.pl_interface {false}
-  CONFIG.cfg_mgmt_if {false}
-  CONFIG.cfg_ctl_if {false}
-  CONFIG.rcv_msg_if {false}
-  CONFIG.cfg_fc_if {false}
-  CONFIG.err_reporting_if {false}
-} [get_ips pcie_7x_0]
+  CONFIG.C_PROBE9_WIDTH {32}
+  CONFIG.C_PROBE8_WIDTH {64}
+  CONFIG.C_PROBE7_WIDTH {1}
+  CONFIG.C_PROBE6_WIDTH {64}
+  CONFIG.C_DATA_DEPTH {4096}
+  CONFIG.C_NUM_OF_PROBES {10}
+  CONFIG.C_TRIGIN_EN {true}
+  CONFIG.C_TRIGOUT_EN {true}
+} [get_ips kdma_ila_0]
 
 set_property -dict { 
   GENERATE_SYNTH_CHECKPOINT {1}
-} $pcie_7x_0
+} $kdma_ila_0
 
 ##################################################################
 
