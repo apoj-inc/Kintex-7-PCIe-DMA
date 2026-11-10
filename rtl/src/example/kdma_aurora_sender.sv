@@ -13,7 +13,9 @@ module kdma_aurora_sender #(
 
     output logic                           aurora_valid_o,
     input  logic                           aurora_ready_i,
-    output logic [63:0]                    aurora_data_o 
+    output logic [63:0]                    aurora_data_o ,
+
+    output logic [1:0]                     state_o       
 );
 
     typedef enum logic [1:0] {
@@ -24,6 +26,8 @@ module kdma_aurora_sender #(
 
     state_t state, state_next;
     logic aurora_hs_counter, aurora_hs_counter_next;
+
+    assign state_o = state;
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin

@@ -135,7 +135,7 @@ static ssize_t read_from_pci(struct file *filp, char __user *user_buf, size_t le
     mutex_lock(&(device_array[dev_ind]->task_read_mutex));
     uint32_t task_fifo_free = ioread32((device_array[dev_ind]->bar2_ptr) + 0x4);
     if (task_fifo_free == 0) {
-        printk(KERN_ERR "hdlnocgen_c5p_driver: Read from DMA channel %d fail - no free spaces in DMAWR-FIFO\n", channel);
+        printk(KERN_ERR "hdlnocgen_c5p_driver: Read from device %05x DMA channel %d fail - no free spaces in DMAWR-FIFO\n", device_array[dev_ind]->bdf, channel);
         mutex_unlock(&(device_array[dev_ind]->task_read_mutex));
         return -ENOMEM;
     }
@@ -239,7 +239,7 @@ static ssize_t write_to_pci(struct file *filp, const char __user *user_buf, size
     mutex_lock(&(device_array[dev_ind]->task_write_mutex));
     uint32_t task_fifo_free = ioread32((device_array[dev_ind]->bar2_ptr) + 0x8);
     if (task_fifo_free == 0) {
-        printk(KERN_ERR "hdlnocgen_c5p_driver: Write to DMA channel %d fail - no free spaces in DMARD-FIFO\n", channel);
+        printk(KERN_ERR "hdlnocgen_c5p_driver: Write to device %05x DMA channel %d fail - no free spaces in DMARD-FIFO\n", device_array[dev_ind]->bdf, channel);
         mutex_unlock(&(device_array[dev_ind]->task_write_mutex));
         return -ENOMEM;
     }
@@ -310,15 +310,18 @@ static irqreturn_t dma_finish(int irq, void *dev) {
         }
     }
 
-    uint32_t irq_status = ioread32((device_array[dev_ind]->bar2_ptr) + ((device_array[dev_ind]->dma_cap_addrs[irq_index]) + 0x20));
-    if (((irq_status & 0x4) >> 2) == 1) {
-        iowrite32(0x1, (device_array[dev_ind]->bar2_ptr) + ((device_array[dev_ind]->dma_cap_addrs[irq_index]) + 0x20));
-        (device_array[dev_ind]->dma_irq_rd_flags[irq_index]) = 1;
-    }
-    if (((irq_status & 0x8) >> 3) == 1) {
-        iowrite32(0x2, (device_array[dev_ind]->bar2_ptr) + ((device_array[dev_ind]->dma_cap_addrs[irq_index]) + 0x20));
-        (device_array[dev_ind]->dma_irq_wr_flags[irq_index]) = 1;
-    }
+    uint32_t irq_status = 0;
+    do {
+        uint32_t irq_status = ioread32((device_array[dev_ind]->bar2_ptr) + ((device_array[dev_ind]->dma_cap_addrs[irq_index]) + 0x20));
+        if (((irq_status & 0x4) >> 2) == 1) {
+            iowrite32(0x1, (device_array[dev_ind]->bar2_ptr) + ((device_array[dev_ind]->dma_cap_addrs[irq_index]) + 0x20));
+            (device_array[dev_ind]->dma_irq_rd_flags[irq_index]) = 1;
+        }
+        if (((irq_status & 0x8) >> 3) == 1) {
+            iowrite32(0x2, (device_array[dev_ind]->bar2_ptr) + ((device_array[dev_ind]->dma_cap_addrs[irq_index]) + 0x20));
+            (device_array[dev_ind]->dma_irq_wr_flags[irq_index]) = 1;
+        }
+    } while (!((((irq_status & 0x4) >> 2) == 0) && (((irq_status & 0x8) >> 3) == 0)));
 
     irq_fired += 1;
 

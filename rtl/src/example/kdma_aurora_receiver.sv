@@ -10,7 +10,9 @@ module kdma_aurora_receiver #(
     input  logic [63:0]                  aurora_data_i ,
 
     output logic [DMA_CHANNEL_COUNT-1:0] dma_valid_o   ,
-    output logic [127:0]                 dma_data_o    
+    output logic [127:0]                 dma_data_o    ,
+
+    output logic [1:0]                   state_o       
 );
 
     typedef enum logic [1:0] {
@@ -28,6 +30,7 @@ module kdma_aurora_receiver #(
 
     assign dma_valid_o = dma_valid;
     assign dma_data_o  = dma_data ;
+    assign state_o     = state    ;
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin

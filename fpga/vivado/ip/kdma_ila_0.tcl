@@ -67,8 +67,10 @@ set_property -dict {
   CONFIG.C_PROBE8_WIDTH {64}
   CONFIG.C_PROBE7_WIDTH {1}
   CONFIG.C_PROBE6_WIDTH {64}
-  CONFIG.C_DATA_DEPTH {8192}
+  CONFIG.C_DATA_DEPTH {4096}
   CONFIG.C_NUM_OF_PROBES {10}
+  CONFIG.C_TRIGIN_EN {true}
+  CONFIG.C_TRIGOUT_EN {true}
 } [get_ips kdma_ila_0]
 
 set_property -dict { 
