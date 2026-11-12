@@ -546,8 +546,6 @@ static int hdlnocgen_dma_probe(struct pci_dev *pdev, const struct pci_device_id 
     }
     device_struct->driver_class->devnode = hdlnocgen_devnode;
     printk(KERN_INFO "hdlnocgen_c5p_driver: Created class %s\n", class_name);
-    
-    kfree(class_name);
 
     for (int i = 0; i < device_struct->dma_channel_count; i++) {
         if (!device_create(device_struct->driver_class, &(pdev->dev), (device_struct->driver_dev_nr)+i, NULL, "hdlnocgen_%05x_%d", device_struct->bdf, i)) {
